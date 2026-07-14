@@ -1,0 +1,87 @@
+[build-system]
+requires = ["setuptools>=77.0.3"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "rextio-networkx"
+dynamic = ["version"]
+description = "Rextio plugin that lowers a typed undirected integer edge list to native petgraph connected components (plugin API 1.2: claim/lower, annotation vocabulary, pinned crate injection)."
+readme = "README.md"
+requires-python = ">=3.11"
+license = "MIT"
+license-files = ["LICENSE"]
+authors = [
+  {name = "Steve Si-young Song", email = "rextio.co@gmail.com"}
+]
+keywords = ["rextio", "networkx", "petgraph", "rust", "compiler", "plugin"]
+classifiers = [
+  "Development Status :: 3 - Alpha",
+  "Intended Audience :: Developers",
+  "Programming Language :: Python :: 3",
+  "Programming Language :: Python :: 3 :: Only",
+  "Topic :: Software Development :: Build Tools",
+]
+# The plugin implements protocol v2 from rextio.plugins.api at plugin API 1.2,
+# which requires rextio 0.1.2. NetworkX is deliberately NOT a runtime
+# dependency: the public/fallback adapter imports it lazily, and it is pinned
+# in the `test` extra so the certification project can build both legs.
+dependencies = [
+  "rextio>=0.1.2,<0.2",
+]
+
+[project.urls]
+Homepage = "https://github.com/rextio/rextio-networkx"
+Repository = "https://github.com/rextio/rextio-networkx"
+Issues = "https://github.com/rextio/rextio-networkx/issues"
+
+[project.entry-points."rextio.plugins"]
+rextio-networkx = "rextio_networkx.plugin:plugin"
+
+[project.optional-dependencies]
+# The public/fallback adapter delegates to NetworkX 3.5 exactly; the
+# certification project builds and compares both legs against it.
+test = [
+  "networkx==3.5",
+  "pytest>=8.0",
+  "hypothesis>=6.0",
+]
+dev = [
+  "networkx==3.5",
+  "pytest>=8.0",
+  "hypothesis>=6.0",
+  "ruff>=0.15",
+  "mypy>=1.11",
+]
+
+[tool.setuptools.dynamic]
+version = {attr = "rextio_networkx.__about__.__version__"}
+
+[tool.setuptools.packages.find]
+where = ["src"]
+
+[tool.pytest.ini_options]
+pythonpath = ["src", "."]
+testpaths = ["tests"]
+
+[tool.ruff]
+target-version = "py311"
+line-length = 100
+src = ["src", "tests"]
+
+[tool.ruff.lint]
+select = ["E", "W", "F", "D"]
+ignore = ["E501", "D105", "D107"]
+
+[tool.ruff.lint.pydocstyle]
+convention = "pep257"
+
+[tool.ruff.lint.per-file-ignores]
+"tests/**" = ["D"]
+
+[tool.mypy]
+python_version = "3.11"
+files = ["src"]
+ignore_missing_imports = true
+warn_unused_ignores = true
+warn_redundant_casts = true
+no_implicit_optional = true
