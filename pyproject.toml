@@ -22,11 +22,14 @@ classifiers = [
   "Topic :: Software Development :: Build Tools",
 ]
 # The plugin implements protocol v2 from rextio.plugins.api at plugin API 1.2,
-# which requires rextio 0.1.2. NetworkX is deliberately NOT a runtime
-# dependency: the public/fallback adapter imports it lazily, and it is pinned
-# in the `test` extra so the certification project can build both legs.
+# which requires rextio 0.1.2. NetworkX 3.5 is a real runtime dependency: the
+# public/fallback adapter imports it at call time and reproduces NetworkX 3.5's
+# `connected_components` semantics exactly, so it must be present and pinned for
+# any install that uses the adapter. It is imported lazily (not at package
+# import), so `import rextio_networkx` still does not eagerly load it.
 dependencies = [
   "rextio>=0.1.2,<0.2",
+  "networkx==3.5",
 ]
 
 [project.urls]
@@ -38,15 +41,14 @@ Issues = "https://github.com/rextio/rextio-networkx/issues"
 rextio-networkx = "rextio_networkx.plugin:plugin"
 
 [project.optional-dependencies]
-# The public/fallback adapter delegates to NetworkX 3.5 exactly; the
-# certification project builds and compares both legs against it.
+# NetworkX 3.5 is already a pinned runtime dependency (the fallback leg the
+# certification project compares against); the extras add only the tools the
+# test/dev environments need on top of it.
 test = [
-  "networkx==3.5",
   "pytest>=8.0",
   "hypothesis>=6.0",
 ]
 dev = [
-  "networkx==3.5",
   "pytest>=8.0",
   "hypothesis>=6.0",
   "ruff>=0.15",

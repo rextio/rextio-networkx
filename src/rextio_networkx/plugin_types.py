@@ -4,8 +4,13 @@ Holds the ``PluginType`` / ``BoundaryConversion`` definitions for the two types
 of the covered edge-list route:
 
 * :data:`EDGELIST_I64` — the undirected signed-i64 edge list input
-  (``rextio_networkx.EdgeListI64``), a Python ``list[tuple[int, int]]`` that
-  PyO3 extracts by value into a ``Vec<(i64, i64)>``.
+  (``rextio_networkx.EdgeListI64``), a Python ``list[tuple[int, int]]``. It
+  crosses the boundary as the raw ``Bound<'py, PyList>`` (not an auto-extracted
+  ``Vec<(i64, i64)>``): the injected helper extracts each node label to ``i64``
+  itself so it can reject a Python ``bool`` label at the boundary. bool is an
+  ``int`` subclass, so a by-value ``Vec<(i64, i64)>`` extraction would silently
+  coerce ``True``/``False`` to ``1``/``0`` and diverge in element type from the
+  NetworkX fallback; an out-of-i64 label raises ``OverflowError`` there.
 * :data:`COMPONENT_LIST` — the ``list[set[int]]`` output
   (``rextio_networkx.ComponentList``). The claimed helper builds the Python
   ``list[set[int]]`` object directly (it has the ``py`` token in scope), so its
@@ -21,19 +26,21 @@ from rextio.plugins.api import BoundaryConversion, PluginType
 
 from rextio_networkx.diagnostics import COMPONENT_LIST, EDGELIST_I64
 
-# The edge list crosses the boundary as an owned ``Vec<(i64, i64)>`` — PyO3
-# extracts a Python ``list[tuple[int, int]]`` by value, so ``param_expr`` is the
-# identity. A signed integer node label outside the i64 range raises PyO3's
-# ``OverflowError`` at the boundary in native mode (a runtime type-contract
-# violation, exactly like passing a str to an int-typed native function); it is
-# not representable at analysis time, so it stays outside the claimed surface.
+# The edge list crosses the boundary as the raw ``Bound<'py, PyList>``, so the
+# injected helper controls how each node label is extracted (``param_expr`` is
+# the identity). It rejects a Python ``bool`` label with ``TypeError`` — bool is
+# an ``int`` subclass, so a by-value ``Vec<(i64, i64)>`` extraction would
+# silently coerce ``True``/``False`` to ``1``/``0`` and diverge in element type
+# from the NetworkX fallback — and a label outside the i64 range raises
+# ``OverflowError``. Both are deterministic, fail-closed runtime type-contract
+# violations (not analysis-time rejections and not per-call fallbacks).
 _EDGELIST_CONVERSION = BoundaryConversion(
-    param_rust="Vec<(i64, i64)>",
+    param_rust="pyo3::Bound<'py, pyo3::types::PyList>",
     param_expr="{param}",
     # Return side is unused on the covered surface (the adapter returns a
-    # ComponentList) but must be a valid PyO3 return: Vec<(i64, i64)> lowers to
-    # a Python list[tuple[int, int]] through IntoPyObject.
-    return_rust="Vec<(i64, i64)>",
+    # ComponentList); it must be a valid PyO3 return, so mirror the input's
+    # Bound<PyList> with the identity conversion.
+    return_rust="pyo3::Bound<'py, pyo3::types::PyList>",
     return_expr="{value}",
 )
 
@@ -53,7 +60,7 @@ PLUGIN_TYPES: tuple[PluginType, ...] = (
     PluginType(
         key=EDGELIST_I64,
         annotations=("rextio_networkx.EdgeListI64",),
-        rust_type="Vec<(i64, i64)>",
+        rust_type="pyo3::Bound<'py, pyo3::types::PyList>",
         conversion=_EDGELIST_CONVERSION,
     ),
     PluginType(

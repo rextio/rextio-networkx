@@ -54,11 +54,17 @@ _RULES: tuple[RuleRecord, ...] = (
             "are bit-exact (integer sets), so verified means value-equivalent, not "
             "within-tolerance. Divergences: edge-only input intentionally cannot "
             "represent an isolated node that appears in no edge (both legs omit it "
-            "identically, since the fallback also builds from the edge list); a node "
-            "label outside the i64 range raises PyO3 OverflowError at the boundary "
-            "in native mode (a runtime type-contract violation, not a per-call "
-            "fallback). Directed graphs, graph options, weighted/attributed edges, "
-            "and the raw NetworkX spelling are not this rule (see RXTP-NETWORKX-019)."
+            "identically, since the fallback also builds from the edge list). Node "
+            "labels that type-check as EdgeListI64 but violate the i64 value "
+            "contract at runtime are rejected deterministically at the native "
+            "boundary, never silently coerced: a Python bool label (bool is an int "
+            "subclass, so a by-value extraction would coerce True/False to 1/0 and "
+            "diverge in element type from the fallback) raises TypeError, and a "
+            "label outside the signed i64 range raises OverflowError. Both are "
+            "fail-closed runtime type-contract violations, not per-call fallbacks "
+            "and not analysis-time rejections. Directed graphs, graph options, "
+            "weighted/attributed edges, and the raw NetworkX spelling are not this "
+            "rule (see RXTP-NETWORKX-019)."
         ),
         outcome="native",
         diagnostic_code="RXTP-NETWORKX-001",
@@ -104,24 +110,31 @@ _RULES: tuple[RuleRecord, ...] = (
         scope=RuleScope(
             kind="type",
             pattern=(
-                "node labels that are not signed i64 integers (object/str/float/bool "
-                "or out-of-i64-range labels), or isolated nodes not present in any edge"
+                "the node-representation contract: nodes are signed i64 integers "
+                "carried through the edge list, and isolated nodes not present in "
+                "any edge cannot be represented"
             ),
         ),
         constraint=(
-            "The covered surface represents nodes only as signed 64-bit integers and "
-            "only through the edge list. Non-integer, bool, object, or out-of-i64 "
-            "node labels have no faithful native representation; and edge-only input "
-            "cannot express an isolated node that appears in no edge. Such graphs "
-            "stay on the Python fallback (or must be constructed through NetworkX "
-            "directly). Declarative-only: never emitted by claim()."
+            "The covered surface represents nodes only as signed 64-bit integers "
+            "carried through the edge list. Edge-only input cannot express an "
+            "isolated node that appears in no edge — both legs omit it identically, "
+            "so it must be constructed through NetworkX directly. A call whose "
+            "resolved argument TYPE is not EdgeListI64 (object/str/float labels, a "
+            "non-edge-list value) is handled at analysis time by RXTP-NETWORKX-010. "
+            "Labels that type-check as EdgeListI64 but violate the i64 value "
+            "contract at runtime (a Python bool, or an integer outside signed i64) "
+            "are NOT routed here and do NOT fall back: they are rejected "
+            "deterministically at the native boundary (TypeError / OverflowError, "
+            "see RXTP-NETWORKX-001). Declarative-only: never emitted by claim()."
         ),
         outcome="fallback",
         diagnostic_code="RXTP-NETWORKX-011",
         guidance=(
-            "Relabel nodes to signed i64 integers and express every node through an "
-            "edge (add a self-loop for an otherwise-isolated node) to use the native "
-            "route, or keep the graph on the Python fallback."
+            "Express every node through an edge (add a self-loop for an "
+            "otherwise-isolated node) and keep node labels as plain signed i64 "
+            "integers within range (not a Python bool) to use the native route, or "
+            "keep the graph on the Python fallback and construct it through NetworkX."
         ),
         stability="experimental",
     ),

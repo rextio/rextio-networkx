@@ -8,9 +8,10 @@ selected and that the native and fallback legs return identical
 self-loops, negative labels, multiple components, insertion order), including
 hypothesis-driven inputs.
 
-Cargo-gated: skipped unless ``cargo`` is on ``PATH``. NetworkX and Hypothesis
-are ``importorskip`` dependencies — the fallback leg delegates to NetworkX, so a
-missing NetworkX makes the comparison impossible rather than vacuous.
+NetworkX and Hypothesis are mandatory dev/test dependencies (NetworkX is a
+pinned runtime dependency the fallback leg delegates to), so they are imported
+unconditionally at module scope. Cargo is the only environment gate: the whole
+module is skipped unless ``cargo`` is on ``PATH``.
 """
 
 from __future__ import annotations
@@ -18,14 +19,11 @@ from __future__ import annotations
 import json
 import shutil
 
+import networkx as nx
 import pytest
+from hypothesis import given, settings, strategies as st
 
-nx = pytest.importorskip("networkx")
-pytest.importorskip("hypothesis")
-
-from hypothesis import given, settings, strategies as st  # noqa: E402
-
-from rextio.plugins.testing import (  # noqa: E402
+from rextio.plugins.testing import (
     CertificationError,
     CertifiedProject,
     build_certification_project,
@@ -50,6 +48,7 @@ COVERED_EDGE_LISTS: dict[str, list[tuple[int, int]]] = {
     "negative_labels": [(-3, -4), (-4, -5), (100, -3)],
     "insertion_order": [(7, 8), (9, 9), (8, 7), (1, 2), (2, 3), (3, 1)],
     "reverse_seen_order": [(4, 3), (3, 2), (0, 1)],
+    "i64_bounds": [(2**63 - 1, -(2**63)), (0, 2**63 - 1)],
 }
 
 KERNELS = """
@@ -158,6 +157,43 @@ def test_native_result_type_is_list_of_sets(project: CertifiedProject) -> None:
     assert isinstance(result, list)
     assert result == [{0, 1, 2}, {10, 11}, {5}]
     assert all(type(component) is set for component in result)
+
+
+def test_bool_labels_fail_closed_at_native_boundary(project: CertifiedProject) -> None:
+    # A Python bool is an int subclass. If the native boundary extracted the edge
+    # list by value it would silently coerce True/False to 1/0, so the native leg
+    # would diverge from the NetworkX fallback in element TYPE (int vs bool) while
+    # still comparing equal through set ==. The boundary refuses bool with a
+    # TypeError instead: a deterministic, fail-closed type-contract violation, NOT
+    # a silent coercion and NOT an analysis-time RXTP rejection (the call is
+    # native-claimed; the rejection happens at the runtime boundary). The kit runs
+    # both legs and reports the native leg's exception, proving it fired natively.
+    check = project.equivalence_checker(
+        "nx_app.kernels.components", equals=_components_equal, args_equals=_args_unmutated
+    )
+    for edges in ([(True, False)], [(True, 2), (2, 0)], [(0, 1), (1, True)]):
+        with pytest.raises(CertificationError, match=r"native raised TypeError"):
+            check(edges)
+    # The fallback keeps bool identity (bool != int by type), so the divergence
+    # the native boundary refuses to certify is real, not hypothetical.
+    fallback = list(nx.connected_components(nx.from_edgelist([(True, False)])))
+    assert fallback == [{False, True}]
+    assert all(type(node) is bool for node in fallback[0])
+
+
+def test_out_of_i64_labels_fail_closed_at_native_boundary(project: CertifiedProject) -> None:
+    # A node label outside signed i64 has no native representation; PyO3 raises
+    # OverflowError at the boundary. Deterministic, fail-closed type-contract
+    # violation (the EdgeListI64 annotation promises signed i64), not an
+    # analysis-time RXTP reject and not a silent truncation.
+    check = project.equivalence_checker(
+        "nx_app.kernels.components", equals=_components_equal, args_equals=_args_unmutated
+    )
+    for out_of_range in (2**63, -(2**63) - 1):
+        with pytest.raises(CertificationError, match=r"native raised OverflowError"):
+            check([(out_of_range, 0)])
+    # The fallback handles arbitrary-precision ints, so the divergence is real.
+    assert list(nx.connected_components(nx.from_edgelist([(2**63, 0)]))) == [{0, 2**63}]
 
 
 @st.composite

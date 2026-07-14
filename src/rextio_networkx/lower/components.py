@@ -21,10 +21,13 @@ def try_lower(claimed: ClaimSite, ctx: LoweringContext) -> LoweredExpr | None:
             f"operand, got {len(ctx.operands)}"
         )
     name = rust_snippets.cc_call_name()
-    helper = rust_snippets.cc_helper()
+    helpers = rust_snippets.cc_helpers()
     # The helper takes the `py` token (in scope for plugin-typed functions) and
-    # a borrow of the edge-list operand; it returns PyResult, so end with `?`.
+    # a borrow of the raw edge-list operand (a Bound<PyList>); it extracts each
+    # node label to i64 at the boundary (rejecting bool / out-of-i64) and
+    # returns PyResult, so end with `?`. Its node-label extractor travels
+    # alongside it and both are deduplicated by exact text in core codegen.
     return LoweredExpr(
         rust=f"{name}(py, &{ctx.operands[0]})?",
-        helpers=(helper,),
+        helpers=helpers,
     )

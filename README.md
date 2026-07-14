@@ -26,8 +26,9 @@ connected_components_from_edgelist(edges)
 ```
 
 It reproduces `list(networkx.connected_components(networkx.from_edgelist(edges)))`
-exactly. NetworkX is imported lazily, so `import rextio_networkx` never requires
-it (install the `test` extra to run the adapter and the certification project).
+exactly. NetworkX 3.5 is a pinned **runtime dependency** (the adapter delegates
+to it), imported lazily so `import rextio_networkx` stays cheap and does not
+eagerly load NetworkX or the Rextio analyzer.
 
 ## Native route
 
@@ -72,10 +73,19 @@ within-tolerance.
 
 - **Isolated nodes** that appear in no edge cannot be represented by edge-only
   input — both legs omit them identically (`RXTP-NETWORKX-011`).
-- **Non-i64 / bool / object node labels** have no native representation and stay
-  on the fallback; an out-of-i64 label raises PyO3 `OverflowError` at the
-  boundary in native mode (a runtime type-contract violation, not a per-call
-  fallback).
+- **A wrong argument _type_** (a value whose resolved type is not `EdgeListI64`)
+  is rejected at analysis time with `RXTP-NETWORKX-010`.
+- **Node labels that type-check as `EdgeListI64` but break the i64 value
+  contract at runtime** are rejected deterministically at the native boundary,
+  never silently coerced:
+  - a Python `bool` label raises `TypeError` — `bool` is an `int` subclass, so a
+    by-value extraction would coerce `True`/`False` to `1`/`0` and the native
+    leg would diverge in element *type* from the NetworkX fallback (which keeps
+    `bool`) while comparing equal through set `==`;
+  - a label outside the signed i64 range raises `OverflowError`.
+
+  These are fail-closed runtime type-contract violations, **not** analysis-time
+  `RXTP-NETWORKX-*` rejections and **not** per-call fallbacks.
 - **The raw NetworkX spelling** `list(nx.connected_components(nx.from_edgelist(edges)))`,
   directed graphs, graph options, and weighted/attributed edges are not lowered
   (`RXTP-NETWORKX-019`) — they stay on the Python fallback. The raw spelling is

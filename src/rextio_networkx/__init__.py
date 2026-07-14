@@ -11,11 +11,12 @@ against CPython NetworkX 3.5 with the core plugin certification kit
 
 The minimum reliable public surface is the explicit adapter
 :func:`connected_components_from_edgelist`, whose ordinary Python
-implementation delegates to pinned NetworkX 3.5. Importing this package pulls
-in neither NetworkX nor the Rextio analyzer: the annotation aliases are plain
-typing aliases, the adapter imports NetworkX lazily on call, and the plugin
-facade defers every core import. That keeps generated fallback runtimes able to
-import the package under a minimal ``rextio`` runtime package.
+implementation delegates to pinned NetworkX 3.5. NetworkX 3.5 is therefore a
+real (pinned) runtime dependency of this package. It is imported *lazily* — on
+the adapter call, not at package import — so ``import rextio_networkx`` still
+pulls in neither NetworkX nor the Rextio analyzer: the annotation aliases are
+plain typing aliases and the plugin facade defers every core import. That keeps
+package import cheap while guaranteeing the fallback leg's NetworkX is present.
 """
 
 from __future__ import annotations
@@ -55,10 +56,14 @@ def connected_components_from_edgelist(edges: EdgeListI64) -> ComponentList:
 
     When Rextio compiles a function that calls this adapter with a typed
     :data:`EdgeListI64` argument, the call lowers to a native ``petgraph``
-    route instead; both legs return an identical ``list[set[int]]``.
+    route instead; both legs return an identical ``list[set[int]]`` for
+    in-contract signed-i64 labels. A Python ``bool`` label or an integer outside
+    the signed i64 range is rejected at the native boundary (``TypeError`` /
+    ``OverflowError``) rather than silently coerced.
 
-    NetworkX is imported lazily so importing ``rextio_networkx`` never requires
-    it; the call raises :class:`ModuleNotFoundError` if NetworkX is absent.
+    NetworkX 3.5 is a pinned runtime dependency, imported lazily on call so
+    importing ``rextio_networkx`` stays cheap; the call raises
+    :class:`ModuleNotFoundError` only if NetworkX has been removed.
     """
     import networkx as nx
 

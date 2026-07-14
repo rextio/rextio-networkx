@@ -25,6 +25,10 @@ COVERED_EDGE_LISTS: dict[str, list[tuple[int, int]]] = {
     "negative_labels": [(-3, -4), (-4, -5), (100, -3)],
     "insertion_order": [(7, 8), (9, 9), (8, 7), (1, 2), (2, 3), (3, 1)],
     "reverse_seen_order": [(4, 3), (3, 2), (0, 1)],
+    # The full signed-i64 range is in-contract and must round-trip natively; the
+    # out-of-range neighbours are fail-closed boundary rejections (see the e2e
+    # boundary tests), not covered cases.
+    "i64_bounds": [(2**63 - 1, -(2**63)), (0, 2**63 - 1)],
 }
 
 
