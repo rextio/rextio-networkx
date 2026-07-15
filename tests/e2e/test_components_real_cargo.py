@@ -30,9 +30,13 @@ from rextio.plugins.testing import (
     default_equals,
 )
 
-pytestmark = pytest.mark.skipif(
-    shutil.which("cargo") is None, reason="real-cargo certification requires cargo on PATH"
-)
+pytestmark = [
+    pytest.mark.needs_cargo,
+    pytest.mark.skipif(
+        shutil.which("cargo") is None,
+        reason="real-cargo certification requires cargo on PATH",
+    ),
+]
 
 # The covered semantics, each an undirected simple-graph edge list of signed i64
 # labels (kept in step with tests/conftest.py::COVERED_EDGE_LISTS). Every case is

@@ -28,10 +28,13 @@ from rextio_networkx.plugin_types import plugin_type
 CORE_ROOT = Path("/Volumes/Data/workspace/rextio/rextio-core-next").resolve()
 CORE_SHA = "2bd1d1da0cf59e97d1659606bcb1ec12491e032c"
 
-pytestmark = pytest.mark.skipif(
-    shutil.which("cargo") is None,
-    reason="real-cargo traversal proof requires cargo",
-)
+pytestmark = [
+    pytest.mark.needs_cargo,
+    pytest.mark.skipif(
+        shutil.which("cargo") is None,
+        reason="real-cargo traversal proof requires cargo",
+    ),
+]
 
 KERNELS = """
 import rextio
