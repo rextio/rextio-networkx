@@ -30,9 +30,13 @@ from rextio.plugins.testing import (
     default_equals,
 )
 
-pytestmark = pytest.mark.skipif(
-    shutil.which("cargo") is None, reason="real-cargo certification requires cargo on PATH"
-)
+pytestmark = [
+    pytest.mark.needs_cargo,
+    pytest.mark.skipif(
+        shutil.which("cargo") is None,
+        reason="real-cargo certification requires cargo on PATH",
+    ),
+]
 
 # The covered semantics, each an undirected simple-graph edge list of signed i64
 # labels (kept in step with tests/conftest.py::COVERED_EDGE_LISTS). Every case is
@@ -64,8 +68,8 @@ def components(edges: EdgeListI64) -> ComponentList:
     return connected_components_from_edgelist(edges)
 
 
-# Intentionally NOT lowerable under core plugin API 1.2 (nested opaque calls,
-# no boundary representation for the intermediate Graph / generator). Must stay
+# Intentionally NOT one of the explicit plugin adapters (the intermediate
+# NetworkX Graph/generator has no plugin vocabulary). It must stay
 # on the Python fallback — proves the plugin fails closed rather than guessing.
 def raw_spelling(edges: EdgeListI64) -> ComponentList:
     return list(nx.connected_components(nx.from_edgelist(edges)))
@@ -172,7 +176,10 @@ def test_bool_labels_fail_closed_at_native_boundary(project: CertifiedProject) -
         "nx_app.kernels.components", equals=_components_equal, args_equals=_args_unmutated
     )
     for edges in ([(True, False)], [(True, 2), (2, 0)], [(0, 1), (1, True)]):
-        with pytest.raises(CertificationError, match=r"native raised TypeError"):
+        with pytest.raises(
+            TypeError,
+            match=r"rextio-networkx: edges\[\d+\].* must be an exact int",
+        ):
             check(edges)
     # The fallback keeps bool identity (bool != int by type), so the divergence
     # the native boundary refuses to certify is real, not hypothetical.
@@ -190,7 +197,10 @@ def test_out_of_i64_labels_fail_closed_at_native_boundary(project: CertifiedProj
         "nx_app.kernels.components", equals=_components_equal, args_equals=_args_unmutated
     )
     for out_of_range in (2**63, -(2**63) - 1):
-        with pytest.raises(CertificationError, match=r"native raised OverflowError"):
+        with pytest.raises(
+            OverflowError,
+            match=r"rextio-networkx: edges\[0\]\[0\] is outside signed-i64 range",
+        ):
             check([(out_of_range, 0)])
     # The fallback handles arbitrary-precision ints, so the divergence is real.
     assert list(nx.connected_components(nx.from_edgelist([(2**63, 0)]))) == [{0, 2**63}]

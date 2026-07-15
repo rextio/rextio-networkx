@@ -8,15 +8,17 @@ from rextio.plugins.api import CoverageDecl
 # pass routes sites by covered package + operand-type ownership. ``networkx`` is
 # the accelerated library; ``rextio_networkx`` is where the covered adapter
 # symbol lives. ``symbols`` is DESCRIPTIVE (it appears in the capability
-# manifest): only ``rextio_networkx.connected_components_from_edgelist`` is
-# actually claimed; the raw ``networkx.from_edgelist`` / ``connected_components``
-# spelling is documented as an uncovered API (RXTP-NETWORKX-019) that stays on
-# the Python fallback.
+# manifest): the explicit rextio_networkx adapters are claimed; raw NetworkX
+# spellings are documented as uncovered (RXTP-NETWORKX-019) and stay fallback.
 COVERAGE = CoverageDecl(
     packages=("networkx", "rextio_networkx"),
     modules=("networkx", "rextio_networkx"),
     symbols=(
         "rextio_networkx.connected_components_from_edgelist",
+        "rextio_networkx.graph_from_edgelist",
+        "rextio_networkx.bfs_edges",
+        "rextio_networkx.weighted_graph_from_edgelist",
+        "rextio_networkx.dijkstra_path_lengths",
         "networkx.from_edgelist",
         "networkx.connected_components",
     ),

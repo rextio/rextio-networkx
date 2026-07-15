@@ -1,80 +1,163 @@
-"""rextio-networkx: a private incubator Rextio plugin for NetworkX.
+"""Exact NetworkX 3.5 adapters for the rextio-networkx incubator.
 
-Implements Rextio plugin API 1.2 (``rextio.plugins.api``): the plugin
-self-describes its rules AND lowers one covered construction route — a typed
-undirected integer edge list converted once to an immutable local ``petgraph``
-graph, with connected components computed in Rust — to a native PyO3 extension,
-with a pinned ``petgraph`` crate injection and the annotation vocabulary
-(:data:`EdgeListI64` / :data:`ComponentList`). The lowering is certified
-against CPython NetworkX 3.5 with the core plugin certification kit
-(``rextio.plugins.testing``).
-
-The minimum reliable public surface is the explicit adapter
-:func:`connected_components_from_edgelist`, whose ordinary Python
-implementation delegates to pinned NetworkX 3.5. NetworkX 3.5 is therefore a
-real (pinned) runtime dependency of this package. It is imported *lazily* — on
-the adapter call, not at package import — so ``import rextio_networkx`` still
-pulls in neither NetworkX nor the Rextio analyzer: the annotation aliases are
-plain typing aliases and the plugin facade defers every core import. That keeps
-package import cheap while guaranteeing the fallback leg's NetworkX is present.
+The public Python functions are the forced-fallback half of the contract.  The
+plugin lowers the same calls to generated Rust.  Validation is deliberately
+narrow and happens before NetworkX sees the values so native and fallback mode
+have the same dynamic contract and error precedence.
 """
 
 from __future__ import annotations
 
+import math
+from typing import Any, TypeAlias
+
 from rextio_networkx.__about__ import __version__
 from rextio_networkx.plugin import RextioNetworkxPlugin, plugin
 
-# --- User annotation vocabulary -------------------------------------------
-# Pure typing aliases: no NetworkX, no Rextio, no runtime cost. They spell the
-# covered native surface so the analyzer resolves parameter/return types to the
-# plugin's registered plugin-type keys (see ``rextio_networkx.plugin_types``).
-#
-# ``EdgeListI64`` is an undirected simple-graph edge list of signed 64-bit
-# integer node labels; ``ComponentList`` is the exact ``list[set[int]]`` result
-# of ``list(networkx.connected_components(...))``.
-EdgeListI64 = list[tuple[int, int]]
-ComponentList = list[set[int]]
+I64_MIN = -(2**63)
+I64_MAX = 2**63 - 1
+
+# Materialized boundary types.
+NodeI64: TypeAlias = int
+EdgeListI64: TypeAlias = list[tuple[int, int]]
+WeightedEdgeListI64F64: TypeAlias = list[tuple[int, int, float]]
+ComponentList: TypeAlias = list[set[int]]
+BfsEdgesI64: TypeAlias = list[tuple[int, int]]
+DijkstraLengthsI64: TypeAlias = dict[int, int | float]
+
+# Resident annotations.  Their runtime value in fallback mode is an exact
+# ``networkx.Graph``; their native value is an opaque petgraph-owned structure.
+# ``Any`` keeps import cheap and avoids importing NetworkX merely for typing.
+GraphI64: TypeAlias = Any
+WeightedGraphI64F64: TypeAlias = Any
+
+
+def _validate_node(value: object, where: str) -> int:
+    """Return an exact signed-i64 Python int or raise the stable contract error."""
+    if type(value) is not int:
+        raise TypeError(f"rextio-networkx: {where} must be an exact int")
+    if value < I64_MIN or value > I64_MAX:
+        raise OverflowError(f"rextio-networkx: {where} is outside signed-i64 range")
+    return value
+
+
+def _validate_unweighted_edges(edges: object) -> EdgeListI64:
+    """Validate an exact list of exact 2-tuples, strictly left-to-right."""
+    if type(edges) is not list:
+        raise TypeError("rextio-networkx: edges must be an exact list")
+    validated: EdgeListI64 = []
+    for index, edge in enumerate(edges):
+        if type(edge) is not tuple:
+            raise TypeError(f"rextio-networkx: edges[{index}] must be an exact tuple")
+        if len(edge) != 2:
+            raise TypeError(f"rextio-networkx: edges[{index}] must contain exactly 2 items")
+        u = _validate_node(edge[0], f"edges[{index}][0]")
+        v = _validate_node(edge[1], f"edges[{index}][1]")
+        validated.append((u, v))
+    return validated
+
+
+def _validate_weighted_edges(edges: object) -> WeightedEdgeListI64F64:
+    """Validate exact weighted tuples before any duplicate is deduplicated."""
+    if type(edges) is not list:
+        raise TypeError("rextio-networkx: edges must be an exact list")
+    validated: WeightedEdgeListI64F64 = []
+    for index, edge in enumerate(edges):
+        if type(edge) is not tuple:
+            raise TypeError(f"rextio-networkx: edges[{index}] must be an exact tuple")
+        if len(edge) != 3:
+            raise TypeError(f"rextio-networkx: edges[{index}] must contain exactly 3 items")
+        u = _validate_node(edge[0], f"edges[{index}][0]")
+        v = _validate_node(edge[1], f"edges[{index}][1]")
+        weight = edge[2]
+        if type(weight) is not float:
+            raise TypeError(f"rextio-networkx: edges[{index}][2] must be an exact float")
+        if not math.isfinite(weight) or weight < 0.0:
+            raise ValueError(
+                f"rextio-networkx: edges[{index}][2] must be a finite non-negative float"
+            )
+        validated.append((u, v, weight))
+    return validated
 
 
 def connected_components_from_edgelist(edges: EdgeListI64) -> ComponentList:
-    """Return the connected components of the graph built from ``edges``.
-
-    This is the explicit public/fallback adapter and the single covered native
-    construction route. Its ordinary Python implementation delegates to pinned
-    NetworkX 3.5, reproducing exactly::
-
-        list(networkx.connected_components(networkx.from_edgelist(edges)))
-
-    ``edges`` is an undirected simple-graph edge list of signed integer node
-    labels: ``[(u0, v0), (u1, v1), ...]``. Insertion order, duplicate edges,
-    self-loops, and disconnected or empty edge lists are all covered. Component
-    list order follows NetworkX (each component ordered by the first insertion
-    of one of its nodes); set element order is not observable through equality.
-
-    Edge-only input intentionally cannot represent an isolated node that never
-    appears in an edge — pass such nodes through NetworkX directly.
-
-    When Rextio compiles a function that calls this adapter with a typed
-    :data:`EdgeListI64` argument, the call lowers to a native ``petgraph``
-    route instead; both legs return an identical ``list[set[int]]`` for
-    in-contract signed-i64 labels. A Python ``bool`` label or an integer outside
-    the signed i64 range is rejected at the native boundary (``TypeError`` /
-    ``OverflowError``) rather than silently coerced.
-
-    NetworkX 3.5 is a pinned runtime dependency, imported lazily on call so
-    importing ``rextio_networkx`` stays cheap; the call raises
-    :class:`ModuleNotFoundError` only if NetworkX has been removed.
-    """
+    """Return ``list(nx.connected_components(nx.from_edgelist(edges)))`` exactly."""
     import networkx as nx
 
-    return list(nx.connected_components(nx.from_edgelist(edges)))
+    checked = _validate_unweighted_edges(edges)
+    return list(nx.connected_components(nx.from_edgelist(checked)))
+
+
+def graph_from_edgelist(edges: EdgeListI64) -> GraphI64:
+    """Build the exact unweighted fallback graph used by the resident route."""
+    import networkx as nx
+
+    checked = _validate_unweighted_edges(edges)
+    graph = nx.Graph()
+    graph.add_edges_from(checked)
+    graph.graph["__rextio_networkx_graph_i64__"] = True
+    return graph
+
+
+def weighted_graph_from_edgelist(edges: WeightedEdgeListI64F64) -> WeightedGraphI64F64:
+    """Build the exact weighted fallback graph used by the resident route."""
+    import networkx as nx
+
+    checked = _validate_weighted_edges(edges)
+    graph = nx.Graph()
+    graph.add_weighted_edges_from(checked)
+    graph.graph["__rextio_networkx_weighted_graph_i64_f64__"] = True
+    return graph
+
+
+def bfs_edges(graph: GraphI64, source: NodeI64) -> BfsEdgesI64:
+    """Return ``list(nx.bfs_edges(graph, source))`` with exact NetworkX order."""
+    import networkx as nx
+
+    if type(graph) is not nx.Graph or not graph.graph.get("__rextio_networkx_graph_i64__", False):
+        raise TypeError("rextio-networkx: graph must be produced by graph_from_edgelist")
+    checked_source = _validate_node(source, "source")
+    if checked_source not in graph:
+        raise nx.NetworkXError(f"The node {checked_source} is not in the graph.")
+    return list(nx.bfs_edges(graph, checked_source))
+
+
+def dijkstra_path_lengths(
+    graph: WeightedGraphI64F64,
+    source: NodeI64,
+) -> DijkstraLengthsI64:
+    """Return NetworkX 3.5 single-source Dijkstra path lengths exactly."""
+    import networkx as nx
+
+    if type(graph) is not nx.Graph or not graph.graph.get(
+        "__rextio_networkx_weighted_graph_i64_f64__", False
+    ):
+        raise TypeError("rextio-networkx: graph must be produced by weighted_graph_from_edgelist")
+    checked_source = _validate_node(source, "source")
+    if checked_source not in graph:
+        raise nx.NodeNotFound(f"Node {checked_source} not found in graph")
+    return nx.single_source_dijkstra_path_length(
+        graph,
+        checked_source,
+        weight="weight",
+    )
 
 
 __all__ = [
+    "BfsEdgesI64",
     "ComponentList",
+    "DijkstraLengthsI64",
     "EdgeListI64",
+    "GraphI64",
+    "NodeI64",
     "RextioNetworkxPlugin",
+    "WeightedEdgeListI64F64",
+    "WeightedGraphI64F64",
     "__version__",
+    "bfs_edges",
     "connected_components_from_edgelist",
+    "dijkstra_path_lengths",
+    "graph_from_edgelist",
     "plugin",
+    "weighted_graph_from_edgelist",
 ]

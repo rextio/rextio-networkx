@@ -152,9 +152,9 @@ def _ctx(operands=("edges",)):
 def test_lower_emits_petgraph_helper_call() -> None:
     expr = lower(_claimed_site(), _ctx())
     assert expr.rust == "__rxtnx_connected_components_i64(py, &edges)?"
-    # Two helpers travel together: the node-label boundary extractor and the
-    # main petgraph connected-components fn.
-    assert len(expr.helpers) == 2
+    # Granular exact-text helpers travel together so API-1.3 signature support
+    # can deduplicate shared boundary/struct items against claim-local support.
+    assert len(expr.helpers) == len(set(expr.helpers))
     joined = "\n".join(expr.helpers)
     assert "petgraph::graph::" in joined
     assert "petgraph::unionfind::UnionFind" in joined
@@ -168,17 +168,17 @@ def test_lower_helper_rejects_bool_labels_at_the_boundary() -> None:
     # native leg cannot silently coerce True/False to 1/0 and diverge in element
     # type from the NetworkX fallback.
     joined = "\n".join(lower(_claimed_site(), _ctx()).helpers)
-    assert "__rxtnx_node_label_i64" in joined
-    assert "is_instance_of::<pyo3::types::PyBool>" in joined
+    assert "__rxtnx_parse_exact_i64" in joined
+    assert "is_exact_instance_of::<pyo3::types::PyInt>" in joined
     assert "PyTypeError::new_err" in joined
-    # The edge list arrives as the raw Python list so the helper owns extraction.
-    assert "edges: &pyo3::Bound<'py, pyo3::types::PyList>" in joined
+    # The API-1.3 raw boundary validates into an owned typed list before use.
+    assert "edges: &pyo3::Bound<'_, pyo3::types::PyAny>" in joined
 
 
 def test_lower_helper_returns_pyresult_bound_list() -> None:
     joined = "\n".join(lower(_claimed_site(), _ctx()).helpers)
     assert "-> pyo3::PyResult<pyo3::Bound<'py, pyo3::types::PyList>>" in joined
-    assert "-> pyo3::PyResult<i64>" in joined
+    assert ") -> pyo3::PyResult<i64>" in joined
 
 
 def test_lower_wrong_target_returns_none_via_router_error() -> None:
