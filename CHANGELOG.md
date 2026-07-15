@@ -43,17 +43,30 @@ Changelog and Semantic Versioning conventions.
   fallback/native speedups were 2.70x–4.40x; every family had sustained measured
   break-even at the smallest measured size (4), with no observed loss cells
   (explicitly not generalized below four nodes or beyond the recorded inputs).
+- Plugin API 1.3 type-owned Rust support for signature-only accepted functions,
+  including exact ordered serializers for `EdgeListI64` and
+  `WeightedEdgeListI64F64` returns, resident-signature definitions, exact-text
+  signature/claim deduplication, and unused-type non-emission regressions.
+- Real-Cargo regressions (collected for the serialized verification phase) for
+  claimless `NodeI64`, unweighted edge-list, and weighted edge-list round trips,
+  including signed-i64 bounds and observable `-0.0` preservation.
 
 ### Changed
 
 - The provider now advertises plugin API 1.3. Package metadata pins exact
-  core-next commit `ac2b79d304f13abaaecaf7714f897574c3b6256f`; it cannot select
+  integrated core-next commit `2bd1d1da0cf59e97d1659606bcb1ec12491e032c`;
+  it cannot select
   released API-1.2 core `rextio==0.1.2`. Public packaging waits for an API-1.3
   core release.
 - The retained connected-components route shares the new exact raw parser and
   resident-compatible ordered petgraph constructor.
 - Test collection, E2E setup, and benchmark startup verify core HEAD, plugin API
   and `rextio.__file__` under the frozen source checkout.
+- The prior 56-cell raw samples and measurement table remain unchanged as
+  historical evidence from product commit `e40bd64` and superseded core
+  `ac2b79d…`, but are now explicitly stale. A fresh authoritative run against
+  the integrated core and current branch remains required before any current
+  speed claim or release decision.
 
 ### Security
 

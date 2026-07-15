@@ -142,7 +142,7 @@ def test_private_dependency_pins_exact_api_13_core_commit() -> None:
     pyproject = tomllib.loads((Path(__file__).parents[1] / "pyproject.toml").read_text())
     dependencies = pyproject["project"]["dependencies"]
     core = next(item for item in dependencies if item.startswith("rextio @ "))
-    assert core.endswith("@ac2b79d304f13abaaecaf7714f897574c3b6256f")
+    assert core.endswith("@2bd1d1da0cf59e97d1659606bcb1ec12491e032c")
     assert "rextio>=0.1.2" not in core
 
 

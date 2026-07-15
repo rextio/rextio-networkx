@@ -2,7 +2,7 @@
 
 `bench_product_routes.py` measures the generated Rextio wrapper, not a
 standalone Rust/PyO3 prototype. It builds a fixture against frozen core commit
-`ac2b79d304f13abaaecaf7714f897574c3b6256f` (plugin API 1.3), verifies
+`2bd1d1da0cf59e97d1659606bcb1ec12491e032c` (plugin API 1.3), verifies
 `check.json` route `native-plugin:rextio-networkx`, then starts two persistent
 wrapper processes:
 
@@ -38,3 +38,9 @@ otherwise the report says `none`.
 No direct-PyO3 diagnostic row is presented as product performance. A
 native/fallback order/type-preserving digest mismatch invalidates the cell and
 suppresses its speedup.
+
+The checked-in result currently predates this baseline: it used product commit
+`e40bd64` and core `ac2b79d…`. It is retained only as historical raw evidence
+and is not authoritative for the current branch. The director must run the full
+56-cell matrix serially after real-Cargo verification; only that new run may
+support a current performance statement.

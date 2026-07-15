@@ -4,7 +4,7 @@ A **private incubator** Rextio plugin for exact, deliberately narrow NetworkX
 3.5 routes on real `petgraph::UnGraph` resident values.
 
 This branch requires unreleased Rextio plugin API **1.3** at exact integrated
-core commit `ac2b79d304f13abaaecaf7714f897574c3b6256f`. Released
+core commit `2bd1d1da0cf59e97d1659606bcb1ec12491e032c`. Released
 `rextio==0.1.2` implements API 1.2 and is not compatible. The package metadata
 therefore pins the core-next Git commit rather than a released version range;
 publication waits for a core release that actually denotes API 1.3.
@@ -84,6 +84,16 @@ nx.single_source_dijkstra_path_length(G, source, weight="weight")
 The WP-1 typed `connected_components_from_edgelist` route remains available
 and now shares the strict raw edge parser and ordered petgraph constructor.
 
+API 1.3 type-level support is explicit and granular. `NodeI64`, both edge-list
+types, and both resident graph types own the exact Rust helpers referenced by
+their signatures or boundary conversions through `PluginType.helpers`.
+Claimless accepted functions therefore compile when a plugin type appears only
+in a parameter or return. Edge-list returns materialize exact ordered built-in
+lists of exact 2- or 3-tuples; signed i64 values and observable float bits
+(including `-0.0`) round-trip without normalization. Unused registered types
+emit no support, and helper text shared by a signature and claim is emitted
+once.
+
 ## Fail-closed boundary
 
 The validation precedence is edge-list container, each edge and exact arity,
@@ -117,16 +127,16 @@ and warm-up are separate. Paired rounds alternate AB/BA, use a common iteration
 count with every sample at least 10 ms, control GC symmetrically, and preserve
 raw samples plus correctness/route/provenance digests.
 
-See [`benchmarks/results/report.md`](benchmarks/results/report.md) and
+The tracked [`benchmarks/results/report.md`](benchmarks/results/report.md) and
 [`benchmarks/results/raw_samples.json`](benchmarks/results/raw_samples.json)
-for the recorded run: all 56 cells (4–2048 requested nodes; connected,
-disconnected, and low-reach families) were correctness-valid, with measured
-median fallback/native speedups from **2.70x to 4.40x**. Every paired-bootstrap
-interval showed a native advantage, so sustained measured break-even was the
-smallest measured size (4) in every family; there were no observed loss cells.
-That is not a claim below four nodes or outside these inputs/toolchain. A
-standalone PyO3 prototype is not used as a product speedup row, and any future
-loss or `none` finding is retained rather than suppressed.
+are retained as **historical, stale evidence**. Their 56 correctness-valid
+cells and 2.70x–4.40x measured medians came from product commit `e40bd64` and
+the superseded core `ac2b79d…`; they predate both the current harness tip and
+the API-1.3 type-support/serializer closure. They are not a speed claim for the
+current branch. A new authoritative 56-cell run against `2bd1d1d…` remains a
+serialized pre-release gate. The harness retains every future loss or `none`
+finding rather than suppressing it, and never labels a standalone PyO3 row as
+product speedup.
 
 ## Development
 

@@ -30,7 +30,7 @@ from cases import BenchmarkCase, benchmark_cases
 
 CORE_ROOT = Path("/Volumes/Data/workspace/rextio/rextio-core-next").resolve()
 CORE_SRC = CORE_ROOT / "src"
-CORE_SHA = "ac2b79d304f13abaaecaf7714f897574c3b6256f"
+CORE_SHA = "2bd1d1da0cf59e97d1659606bcb1ec12491e032c"
 REPO_ROOT = Path(__file__).resolve().parents[1]
 PLUGIN_SRC = REPO_ROOT / "src"
 FIXTURE_MODULE = "nx_bench_app.kernels"

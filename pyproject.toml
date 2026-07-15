@@ -25,7 +25,7 @@ classifiers = [
 # incubator therefore pins the exact integrated source commit rather than a
 # version range that could silently resolve to released API 1.2.
 dependencies = [
-  "rextio @ git+https://github.com/rextio/rextio-core-next.git@ac2b79d304f13abaaecaf7714f897574c3b6256f",
+  "rextio @ git+https://github.com/rextio/rextio-core-next.git@2bd1d1da0cf59e97d1659606bcb1ec12491e032c",
   "networkx==3.5",
 ]
 

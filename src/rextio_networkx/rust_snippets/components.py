@@ -2,7 +2,7 @@
 
 from __future__ import annotations
 
-from rextio_networkx.rust_snippets.traversal import traversal_support
+from rextio_networkx.rust_snippets.traversal import graph_constructor_helpers
 
 _HELPER_NAME = "__rxtnx_connected_components_i64"
 
@@ -14,7 +14,7 @@ def cc_call_name() -> str:
 
 def cc_helpers() -> tuple[str, ...]:
     """Return shared parsing/graph support plus the components helper."""
-    return (traversal_support(), _cc_helper())
+    return (*graph_constructor_helpers(), _cc_helper())
 
 
 def _cc_helper() -> str:

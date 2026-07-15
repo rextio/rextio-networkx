@@ -152,9 +152,9 @@ def _ctx(operands=("edges",)):
 def test_lower_emits_petgraph_helper_call() -> None:
     expr = lower(_claimed_site(), _ctx())
     assert expr.rust == "__rxtnx_connected_components_i64(py, &edges)?"
-    # Two helpers travel together: the node-label boundary extractor and the
-    # main petgraph connected-components fn.
-    assert len(expr.helpers) == 2
+    # Granular exact-text helpers travel together so API-1.3 signature support
+    # can deduplicate shared boundary/struct items against claim-local support.
+    assert len(expr.helpers) == len(set(expr.helpers))
     joined = "\n".join(expr.helpers)
     assert "petgraph::graph::" in joined
     assert "petgraph::unionfind::UnionFind" in joined

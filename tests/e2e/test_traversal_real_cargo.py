@@ -3,21 +3,30 @@
 from __future__ import annotations
 
 import hashlib
+import importlib.util
 import json
 import shutil
 import subprocess
 from copy import deepcopy
 from pathlib import Path
+from types import ModuleType
 
 import networkx as nx
 import pytest
 
 import rextio
+from rextio.build.cargo_builder import build_native_extension_with_cargo
+from rextio.codegen.rust.cargo import render_cargo_config_toml, render_cargo_toml
+from rextio.codegen.rust.generator import generate_rust_module
+from rextio.ir.nodes import BlockIR, FunctionIR, ModuleIR, NameIR, ParamIR, ReturnIR
+from rextio.ir.types import RxtPluginType
 from rextio.plugins.api import PLUGIN_API_VERSION
 from rextio.plugins.testing import CertifiedProject, EquivalenceChecker, build_certification_project
+from rextio_networkx.diagnostics import EDGELIST_I64, NODE_I64, WEIGHTED_EDGELIST_I64_F64
+from rextio_networkx.plugin_types import plugin_type
 
 CORE_ROOT = Path("/Volumes/Data/workspace/rextio/rextio-core-next").resolve()
-CORE_SHA = "ac2b79d304f13abaaecaf7714f897574c3b6256f"
+CORE_SHA = "2bd1d1da0cf59e97d1659606bcb1ec12491e032c"
 
 pytestmark = pytest.mark.skipif(
     shutil.which("cargo") is None,
@@ -156,7 +165,130 @@ def test_generated_source_owns_petgraph_and_constructs_once(project: CertifiedPr
     ) < dijkstra_body.index("__rxtnx_parse_source_i64(py, &source)")
     assert "__rxtnx_bfs_edges_i64(py, &" in bfs_body
     assert "__rxtnx_dijkstra_lengths_i64_f64(py, &" in dijkstra_body
+    assert source.count("fn __rxtnx_edgelist_i64_to_py") == 1
+    assert source.count("fn __rxtnx_weighted_edgelist_i64_f64_to_py") == 1
     assert "wrap_pyfunction!(nx_traversal_app__kernels__resident_escape" not in source
+
+
+def _signature_ir_type(key: str) -> RxtPluginType:
+    declared = plugin_type(key)
+    conversion = declared.conversion
+    assert conversion is not None
+    return RxtPluginType(
+        key=declared.key,
+        native_rust=declared.rust_type,
+        param_rust=conversion.param_rust,
+        param_expr=conversion.param_expr,
+        return_rust=conversion.return_rust,
+        return_expr=conversion.return_expr,
+        uses=declared.uses,
+        helpers=declared.helpers,
+    )
+
+
+def _signature_roundtrip(name: str, key: str, param: str) -> FunctionIR:
+    value_type = _signature_ir_type(key)
+    return FunctionIR(
+        name=name,
+        qualname=f"nx_signature.{name}",
+        module_name="nx_signature",
+        params=[ParamIR(name=param, type=value_type)],
+        return_type=value_type,
+        body=BlockIR(statements=[ReturnIR(NameIR(param))]),
+        plugin_lowered=True,
+    )
+
+
+@pytest.fixture(scope="module")
+def signature_only_module(tmp_path_factory: pytest.TempPathFactory) -> ModuleType:
+    """Compile zero-claim IR so signature support alone must close every symbol."""
+    rust_dir = tmp_path_factory.mktemp("nx_signature_rust")
+    rust_src = rust_dir / "src"
+    rust_src.mkdir()
+    python_dir = tmp_path_factory.mktemp("nx_signature_python")
+    functions = [
+        _signature_roundtrip("node_roundtrip", NODE_I64, "source"),
+        _signature_roundtrip("edgelist_roundtrip", EDGELIST_I64, "edges"),
+        _signature_roundtrip(
+            "weighted_edgelist_roundtrip",
+            WEIGHTED_EDGELIST_I64_F64,
+            "edges",
+        ),
+    ]
+    types_by_key = {
+        key: _signature_ir_type(key) for key in (NODE_I64, EDGELIST_I64, WEIGHTED_EDGELIST_I64_F64)
+    }
+    source = generate_rust_module(
+        ModuleIR(functions=functions),
+        plugin_types_by_key=types_by_key,
+    )
+    # There are deliberately zero PluginClaimIR nodes: the signature is the
+    # sole support authority, while each body simply exercises the conversion
+    # pair. This bypasses source-level mutable-alias rejection only inside the
+    # codegen regression; the public analyzer's aliasing guard remains intact.
+    assert "__rxtnx_edgelist_i64_to_py" in source
+    assert "__rxtnx_weighted_edgelist_i64_f64_to_py" in source
+    (rust_dir / "Cargo.toml").write_text(render_cargo_toml(), encoding="utf-8")
+    cargo_config = rust_dir / ".cargo"
+    cargo_config.mkdir()
+    (cargo_config / "config.toml").write_text(render_cargo_config_toml(), encoding="utf-8")
+    (rust_src / "lib.rs").write_text(source, encoding="utf-8")
+    built = build_native_extension_with_cargo(rust_dir, python_dir)
+    assert built.status == "built", built.message + "\n" + built.stderr
+    assert built.installed_path is not None
+    spec = importlib.util.spec_from_file_location("_rextio_native", built.installed_path)
+    assert spec is not None and spec.loader is not None
+    module = importlib.util.module_from_spec(spec)
+    spec.loader.exec_module(module)
+    return module
+
+
+@pytest.mark.parametrize("source", [-(2**63), -7, 0, 2**63 - 1])
+def test_claimless_node_signature_roundtrip(signature_only_module: ModuleType, source: int) -> None:
+    actual = signature_only_module.nx_signature__node_roundtrip(source)
+    assert type(actual) is int
+    assert actual == source
+
+
+@pytest.mark.parametrize(
+    "edges",
+    [
+        [],
+        [(0, 1), (-5, 9), (2**63 - 1, -(2**63))],
+        [(4, 1), (1, 4), (4, 4)],
+    ],
+)
+def test_claimless_edgelist_signature_roundtrip(
+    signature_only_module: ModuleType,
+    edges: list[tuple[int, int]],
+) -> None:
+    actual = signature_only_module.nx_signature__edgelist_roundtrip(edges)
+    assert type(actual) is list
+    assert actual == edges
+    assert all(type(edge) is tuple and len(edge) == 2 for edge in actual)
+    assert all(type(node) is int for edge in actual for node in edge)
+
+
+@pytest.mark.parametrize(
+    "edges",
+    [
+        [],
+        [(0, 1, -0.0), (-5, 9, 1.25), (2**63 - 1, -(2**63), 2.5)],
+        [(4, 1, 3.0), (1, 4, 7.5), (4, 4, 0.0)],
+    ],
+)
+def test_claimless_weighted_edgelist_signature_roundtrip(
+    signature_only_module: ModuleType,
+    edges: list[tuple[int, int, float]],
+) -> None:
+    actual = signature_only_module.nx_signature__weighted_edgelist_roundtrip(edges)
+    assert type(actual) is list
+    assert [(u, v, weight.hex()) for u, v, weight in actual] == [
+        (u, v, weight.hex()) for u, v, weight in edges
+    ]
+    assert all(type(edge) is tuple and len(edge) == 3 for edge in actual)
+    assert all(type(edge[0]) is int and type(edge[1]) is int for edge in actual)
+    assert all(type(edge[2]) is float for edge in actual)
 
 
 def _bfs_equal(left: object, right: object) -> bool:

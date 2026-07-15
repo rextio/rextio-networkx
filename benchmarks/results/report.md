@@ -1,5 +1,13 @@
 # Rextio NetworkX product-route benchmark
 
+> **Historical / stale evidence.** This recorded run measured product commit
+> `e40bd64ea43268e6d6722733f1091b40d88eb026` on superseded core
+> `ac2b79d304f13abaaecaf7714f897574c3b6256f`. It predates the current harness
+> tip and API-1.3 type-support/serializer closure. The measurements below are
+> preserved, not rewritten, but are not a speed claim for the current branch;
+> a fresh 56-cell run against core `2bd1d1da0cf59e97d1659606bcb1ec12491e032c`
+> remains required.
+
 Primary rows call the generated Rextio wrapper in two persistent processes; they are not standalone Rust/PyO3 measurements.
 
 ## Run summary

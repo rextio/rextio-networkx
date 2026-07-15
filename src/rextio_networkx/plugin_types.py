@@ -14,6 +14,13 @@ from rextio_networkx.diagnostics import (
     WEIGHTED_EDGELIST_I64_F64,
     WEIGHTED_GRAPH_I64_F64,
 )
+from rextio_networkx.rust_snippets.traversal import (
+    edge_list_type_helpers,
+    graph_type_helpers,
+    node_type_helpers,
+    weighted_edge_list_type_helpers,
+    weighted_graph_type_helpers,
+)
 
 
 def _raw_conversion(*, parser: str, return_rust: str, return_expr: str) -> BoundaryConversion:
@@ -59,18 +66,21 @@ PLUGIN_TYPES: tuple[PluginType, ...] = (
         annotations=("rextio_networkx.NodeI64",),
         rust_type="i64",
         conversion=_NODE_CONVERSION,
+        helpers=node_type_helpers(),
     ),
     PluginType(
         key=EDGELIST_I64,
         annotations=("rextio_networkx.EdgeListI64",),
         rust_type="RxtNxEdgeListI64",
         conversion=_EDGE_CONVERSION,
+        helpers=edge_list_type_helpers(),
     ),
     PluginType(
         key=WEIGHTED_EDGELIST_I64_F64,
         annotations=("rextio_networkx.WeightedEdgeListI64F64",),
         rust_type="RxtNxWeightedEdgeListI64F64",
         conversion=_WEIGHTED_EDGE_CONVERSION,
+        helpers=weighted_edge_list_type_helpers(),
     ),
     PluginType(
         key=COMPONENT_LIST,
@@ -95,12 +105,14 @@ PLUGIN_TYPES: tuple[PluginType, ...] = (
         annotations=("rextio_networkx.GraphI64",),
         rust_type="RxtNxGraphI64",
         conversion=None,
+        helpers=graph_type_helpers(),
     ),
     PluginType(
         key=WEIGHTED_GRAPH_I64_F64,
         annotations=("rextio_networkx.WeightedGraphI64F64",),
         rust_type="RxtNxWeightedGraphI64F64",
         conversion=None,
+        helpers=weighted_graph_type_helpers(),
     ),
 )
 

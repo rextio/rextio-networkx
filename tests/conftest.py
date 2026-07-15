@@ -17,7 +17,7 @@ import pytest
 
 CORE_ROOT = Path("/Volumes/Data/workspace/rextio/rextio-core-next").resolve()
 CORE_SRC = CORE_ROOT / "src"
-CORE_SHA = "ac2b79d304f13abaaecaf7714f897574c3b6256f"
+CORE_SHA = "2bd1d1da0cf59e97d1659606bcb1ec12491e032c"
 
 # Collection must use the frozen source checkout, never a released/global core.
 sys.path.insert(0, str(CORE_SRC))

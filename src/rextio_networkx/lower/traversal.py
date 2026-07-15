@@ -15,7 +15,10 @@ from rextio_networkx.rust_snippets.traversal import (
     DIJKSTRA_LENGTHS,
     GRAPH_FROM_EDGELIST,
     WEIGHTED_GRAPH_FROM_EDGELIST,
-    traversal_helpers,
+    bfs_helpers,
+    dijkstra_helpers,
+    graph_constructor_helpers,
+    weighted_graph_constructor_helpers,
 )
 
 
@@ -32,27 +35,29 @@ def try_lower(claimed: ClaimSite, ctx: LoweringContext) -> LoweredExpr | None:
     if claimed.kind != "call":
         return None
     operands = tuple(ctx.operands)
-    helpers = traversal_helpers()
     if claimed.target == GRAPH_TARGET:
         _require_operands(claimed.target, operands, 1)
-        return LoweredExpr(rust=f"{GRAPH_FROM_EDGELIST}(&{operands[0]})", helpers=helpers)
+        return LoweredExpr(
+            rust=f"{GRAPH_FROM_EDGELIST}(&{operands[0]})",
+            helpers=graph_constructor_helpers(),
+        )
     if claimed.target == WEIGHTED_GRAPH_TARGET:
         _require_operands(claimed.target, operands, 1)
         return LoweredExpr(
             rust=f"{WEIGHTED_GRAPH_FROM_EDGELIST}(&{operands[0]})",
-            helpers=helpers,
+            helpers=weighted_graph_constructor_helpers(),
         )
     if claimed.target == BFS_TARGET:
         _require_operands(claimed.target, operands, 2)
         return LoweredExpr(
             rust=f"{BFS_EDGES}(py, &{operands[0]}, {operands[1]})?",
-            helpers=helpers,
+            helpers=bfs_helpers(),
         )
     if claimed.target == DIJKSTRA_TARGET:
         _require_operands(claimed.target, operands, 2)
         return LoweredExpr(
             rust=f"{DIJKSTRA_LENGTHS}(py, &{operands[0]}, {operands[1]})?",
-            helpers=helpers,
+            helpers=dijkstra_helpers(),
         )
     return None
 
