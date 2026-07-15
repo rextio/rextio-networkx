@@ -39,6 +39,10 @@ Changelog and Semantic Versioning conventions.
   calibration, symmetric GC, raw samples, paired-bootstrap intervals,
   order/type-preserving correctness digests, route evidence, exact provenance,
   measured sustained break-even, and explicit non-claims.
+- Recorded 56 correctness-valid product cells over 4–2048 nodes. Median
+  fallback/native speedups were 2.70x–4.40x; every family had sustained measured
+  break-even at the smallest measured size (4), with no observed loss cells
+  (explicitly not generalized below four nodes or beyond the recorded inputs).
 
 ### Changed
 

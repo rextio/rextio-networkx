@@ -119,9 +119,14 @@ raw samples plus correctness/route/provenance digests.
 
 See [`benchmarks/results/report.md`](benchmarks/results/report.md) and
 [`benchmarks/results/raw_samples.json`](benchmarks/results/raw_samples.json)
-after running the full benchmark. A standalone PyO3 prototype is not used as a
-product speedup row. Losses and `none` break-even findings are retained rather
-than suppressed.
+for the recorded run: all 56 cells (4–2048 requested nodes; connected,
+disconnected, and low-reach families) were correctness-valid, with measured
+median fallback/native speedups from **2.70x to 4.40x**. Every paired-bootstrap
+interval showed a native advantage, so sustained measured break-even was the
+smallest measured size (4) in every family; there were no observed loss cells.
+That is not a claim below four nodes or outside these inputs/toolchain. A
+standalone PyO3 prototype is not used as a product speedup row, and any future
+loss or `none` finding is retained rather than suppressed.
 
 ## Development
 

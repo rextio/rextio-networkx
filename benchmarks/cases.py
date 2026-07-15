@@ -43,7 +43,11 @@ def _segments(size: int, family: Family) -> list[tuple[int, int]]:
 def _unweighted_edges(size: int, family: Family) -> list[tuple[int, int]]:
     edges: list[tuple[int, int]] = []
     for start, stop in _segments(size, family):
-        edges.extend((node, node + 1) for node in range(start, stop - 1))
+        if stop - start == 1:
+            # Edge-only inputs represent a one-node component with a self-loop.
+            edges.append((start, start))
+        else:
+            edges.extend((node, node + 1) for node in range(start, stop - 1))
     # Deterministic reversed duplicates exercise the product's deduplication
     # cost without changing the effective graph or adjacency order.
     if edges:

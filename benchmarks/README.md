@@ -27,6 +27,9 @@ original route evidence is `results/check.json`.
 .venv/bin/python benchmarks/bench_product_routes.py
 ```
 
+The full default matrix measures 4, 8, 16, 32, 128, 512, and 2048 requested
+nodes across connected, disconnected, and low-reach families (56 cells total).
+
 Break-even is never interpolated. It is the first measured size whose paired
 bootstrap 95% interval for `log(native/fallback)` is wholly below zero and
 remains below zero at every larger measured size in the same algorithm/family;

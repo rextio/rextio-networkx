@@ -91,6 +91,10 @@ def _baseline() -> dict[str, object]:
         "plugin_api": PLUGIN_API_VERSION,
         "rextio_file": str(rextio_file),
         "plugin_commit": _run_text(["rtk", "git", "-C", str(REPO_ROOT), "rev-parse", "HEAD"]),
+        "benchmark_harness_sha256": hashlib.sha256(Path(__file__).read_bytes()).hexdigest(),
+        "benchmark_cases_sha256": hashlib.sha256(
+            (Path(__file__).with_name("cases.py")).read_bytes()
+        ).hexdigest(),
         "rextio_networkx_version": rextio_networkx.__version__,
         "rextio_networkx_file": str(Path(rextio_networkx.__file__).resolve()),
         "networkx_version": networkx.__version__,
@@ -158,18 +162,21 @@ def _worker_main(args: argparse.Namespace) -> int:
         enabled = gc.isenabled()
         gc.disable()
         start = time.perf_counter_ns()
-        result: object = None
         try:
             for _ in range(iterations):
-                result = function(*call_args)
+                materialized_result = function(*call_args)
+                # Include result destruction in every timed iteration.  A
+                # separate untimed call below supplies the correctness digest.
+                del materialized_result
         finally:
             elapsed = time.perf_counter_ns() - start
             if enabled:
                 gc.enable()
+        verification_result = function(*call_args)
         response = {
             "elapsed_ns": elapsed,
             "iterations": iterations,
-            "digest": _digest(str(case["algorithm"]), result),
+            "digest": _digest(str(case["algorithm"]), verification_result),
         }
         print(json.dumps(response, sort_keys=True), flush=True)
     return 0
@@ -353,19 +360,43 @@ def _break_even(cells: list[dict[str, object]]) -> dict[str, object]:
 
 
 def _write_markdown(path: Path, result: dict[str, object]) -> None:
+    cells: list[dict[str, Any]] = result["cells"]  # type: ignore[assignment]
+    native_warmups = [int(cell["warmups"]["native"]["elapsed_ns"]) for cell in cells]
+    fallback_warmups = [int(cell["warmups"]["fallback"]["elapsed_ns"]) for cell in cells]
+    retained_min_ns = min(
+        min(int(sample["native_ns"]), int(sample["fallback_ns"]))
+        for cell in cells
+        for sample in cell["samples"]
+    )
+    losses = [
+        cell
+        for cell in cells
+        if cell["valid"] and float(cell["median_speedup_fallback_over_native"]) < 1.0
+    ]
     lines = [
         "# Rextio NetworkX product-route benchmark",
         "",
         "Primary rows call the generated Rextio wrapper in two persistent processes; "
         "they are not standalone Rust/PyO3 measurements.",
         "",
-        "| Algorithm | Family | Nodes | Raw/effective edges | Reach | Native ms | Fallback ms | Speedup | Ratio CI95 |",
-        "|---|---:|---:|---:|---:|---:|---:|---:|---:|",
+        "## Run summary",
+        "",
+        f"- Frozen core: `{result['provenance']['core_sha']}` / API `{result['provenance']['plugin_api']}`",  # type: ignore[index]
+        f"- Product commit: `{result['provenance']['plugin_commit']}`",  # type: ignore[index]
+        f"- One-time build: {float(result['method']['build_ns']) / 1e9:.3f} s",  # type: ignore[index]
+        f"- First-call warm-up range: native {min(native_warmups) / 1e6:.3f}–{max(native_warmups) / 1e6:.3f} ms; fallback {min(fallback_warmups) / 1e6:.3f}–{max(fallback_warmups) / 1e6:.3f} ms",
+        f"- Retained sample minimum: {retained_min_ns / 1e6:.3f} ms; timer floor: {result['method']['timer_floor_ns']} ns",  # type: ignore[index]
+        f"- Route evidence: `check.json` SHA-256 `{result['route_evidence']['check_json_sha256']}`",  # type: ignore[index]
+        f"- Observed loss cells: {len(losses)}" + (" (none)" if not losses else ""),
+        "",
+        "| Algorithm | Family | Requested nodes | Raw/effective nodes | Raw/effective edges | Reach | Native ms | Fallback ms | Speedup | Ratio CI95 |",
+        "|---|---:|---:|---:|---:|---:|---:|---:|---:|---:|",
     ]
-    for cell in result["cells"]:  # type: ignore[union-attr]
+    for cell in cells:
         if not cell["valid"]:
             lines.append(
                 f"| {cell['algorithm']} | {cell['family']} | {cell['requested_nodes']} | "
+                f"{cell['raw_node_occurrences']}/{cell['effective_nodes']} | "
                 f"{cell['raw_edges']}/{cell['effective_edges']} | {cell['reachable_nodes']} | INVALID | INVALID | — | — |"
             )
             continue
@@ -375,6 +406,7 @@ def _write_markdown(path: Path, result: dict[str, object]) -> None:
         ratio_ci = cell["paired_ci"]["ratio_ci95"]
         lines.append(
             f"| {cell['algorithm']} | {cell['family']} | {cell['requested_nodes']} | "
+            f"{cell['raw_node_occurrences']}/{cell['effective_nodes']} | "
             f"{cell['raw_edges']}/{cell['effective_edges']} | {cell['reachable_nodes']} | "
             f"{native_ms:.4f} | {fallback_ms:.4f} | {speedup:.2f}x | "
             f"[{ratio_ci[0]:.3f}, {ratio_ci[1]:.3f}] |"
@@ -388,6 +420,21 @@ def _write_markdown(path: Path, result: dict[str, object]) -> None:
             "Sustained break-even is the first measured size whose paired-bootstrap "
             "95% CI for log(native/fallback) is wholly below zero and remains so at "
             "every larger measured size in that family; `none` is not interpolated.",
+            "",
+            "## Loss cells",
+            "",
+            *(
+                [
+                    f"- `{cell['case_id']}`: native/fallback median ratio "
+                    f"{1 / float(cell['median_speedup_fallback_over_native']):.3f}"
+                    for cell in losses
+                ]
+                if losses
+                else [
+                    "- None at the measured sizes; this is a measured result, "
+                    "not a claim below the smallest size."
+                ]
+            ),
             "",
             "## Explicit non-claims",
             "",
@@ -517,7 +564,12 @@ def _parser() -> argparse.ArgumentParser:
     parser.add_argument("--mode", choices=("native", "fallback"))
     parser.add_argument("--build-python")
     parser.add_argument("--smoke", action="store_true")
-    parser.add_argument("--sizes", nargs="+", type=int, default=[32, 128, 512, 2048])
+    parser.add_argument(
+        "--sizes",
+        nargs="+",
+        type=int,
+        default=[4, 8, 16, 32, 128, 512, 2048],
+    )
     parser.add_argument("--rounds", type=int, default=9)
     parser.add_argument("--target-ms", type=float, default=20.0)
     parser.add_argument("--seed", type=int, default=20260715)

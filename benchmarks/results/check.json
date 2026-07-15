@@ -1,0 +1,562 @@
+{
+  "accepted_native": [
+    "nx_bench_app.kernels.bfs_product",
+    "nx_bench_app.kernels.components_product",
+    "nx_bench_app.kernels.dijkstra_product"
+  ],
+  "accepted_native_top_levels": [],
+  "contract_version": "2.0.0",
+  "diagnostics": [],
+  "embedding_candidates": [],
+  "modules": [
+    {
+      "diagnostics": [],
+      "file_path": "/private/var/folders/lc/fscpgs615pq83nyy1gkh1nn40000gn/T/rextio-networkx-bench-ce24aq5u/src/nx_bench_app/__init__.py",
+      "functions": [],
+      "import_policies": [],
+      "imports": {},
+      "logger_group_targets": {},
+      "logger_names": [],
+      "module_name": "nx_bench_app",
+      "top_level": null
+    },
+    {
+      "diagnostics": [],
+      "file_path": "/private/var/folders/lc/fscpgs615pq83nyy1gkh1nn40000gn/T/rextio-networkx-bench-ce24aq5u/src/nx_bench_app/kernels.py",
+      "functions": [
+        {
+          "accepted": true,
+          "boundary_call_targets": [],
+          "calls": [
+            {
+              "arg_types": [
+                null
+              ],
+              "column": 11,
+              "in_loop": false,
+              "line": 18,
+              "target": "rextio_networkx.connected_components_from_edgelist"
+            }
+          ],
+          "column": 0,
+          "diagnostics": [],
+          "embedding_reason": null,
+          "explicitly_marked": false,
+          "external_accelerator": null,
+          "file_path": "/private/var/folders/lc/fscpgs615pq83nyy1gkh1nn40000gn/T/rextio-networkx-bench-ce24aq5u/src/nx_bench_app/kernels.py",
+          "inferred_arg_types": {},
+          "inferred_return_type": null,
+          "is_embedding_candidate": false,
+          "is_native_candidate": true,
+          "line": 17,
+          "module_name": "nx_bench_app.kernels",
+          "name": "components_product",
+          "native_runtime_semantics": false,
+          "native_status": "accepted",
+          "native_target_language": "rust",
+          "plugin_claims": [
+            {
+              "column": 11,
+              "end_column": 52,
+              "end_line": 18,
+              "expression": {
+                "children": [
+                  {
+                    "children": [],
+                    "keywords": [],
+                    "kind": "leaf",
+                    "leaf_index": 0,
+                    "leaf_kind": "name",
+                    "literal": {
+                      "is_literal": false
+                    },
+                    "result_type": "rextio-networkx/edgelist-i64",
+                    "target": ""
+                  }
+                ],
+                "keywords": [],
+                "kind": "call",
+                "leaf_index": null,
+                "leaf_kind": null,
+                "literal": {
+                  "is_literal": false
+                },
+                "result_type": "rextio-networkx/component-list",
+                "target": "rextio_networkx.connected_components_from_edgelist"
+              },
+              "kind": "call",
+              "line": 18,
+              "operand_literals": [
+                {
+                  "is_literal": false
+                }
+              ],
+              "operand_types": [
+                "rextio-networkx/edgelist-i64"
+              ],
+              "plugin_id": "rextio-networkx",
+              "result_type": "rextio-networkx/component-list",
+              "rule_id": "rextio-networkx/connected-components-edgelist",
+              "target": "rextio_networkx.connected_components_from_edgelist"
+            }
+          ],
+          "plugin_type_keys": [
+            "rextio-networkx/component-list",
+            "rextio-networkx/edgelist-i64"
+          ],
+          "qualname": "nx_bench_app.kernels.components_product",
+          "rejection_codes": [],
+          "route": "native-plugin:rextio-networkx"
+        },
+        {
+          "accepted": true,
+          "boundary_call_targets": [],
+          "calls": [
+            {
+              "arg_types": [
+                null,
+                null
+              ],
+              "column": 11,
+              "in_loop": false,
+              "line": 22,
+              "target": "rextio_networkx.bfs_edges"
+            },
+            {
+              "arg_types": [
+                null
+              ],
+              "column": 21,
+              "in_loop": false,
+              "line": 22,
+              "target": "rextio_networkx.graph_from_edgelist"
+            }
+          ],
+          "column": 0,
+          "diagnostics": [],
+          "embedding_reason": null,
+          "explicitly_marked": false,
+          "external_accelerator": null,
+          "file_path": "/private/var/folders/lc/fscpgs615pq83nyy1gkh1nn40000gn/T/rextio-networkx-bench-ce24aq5u/src/nx_bench_app/kernels.py",
+          "inferred_arg_types": {},
+          "inferred_return_type": null,
+          "is_embedding_candidate": false,
+          "is_native_candidate": true,
+          "line": 21,
+          "module_name": "nx_bench_app.kernels",
+          "name": "bfs_product",
+          "native_runtime_semantics": false,
+          "native_status": "accepted",
+          "native_target_language": "rust",
+          "plugin_claims": [
+            {
+              "column": 11,
+              "end_column": 56,
+              "end_line": 22,
+              "expression": {
+                "children": [
+                  {
+                    "children": [],
+                    "keywords": [],
+                    "kind": "leaf",
+                    "leaf_index": 0,
+                    "leaf_kind": "opaque",
+                    "literal": {
+                      "is_literal": false
+                    },
+                    "result_type": "rextio-networkx/graph-i64",
+                    "target": ""
+                  },
+                  {
+                    "children": [],
+                    "keywords": [],
+                    "kind": "leaf",
+                    "leaf_index": 1,
+                    "leaf_kind": "name",
+                    "literal": {
+                      "is_literal": false
+                    },
+                    "result_type": "rextio-networkx/node-i64",
+                    "target": ""
+                  }
+                ],
+                "keywords": [],
+                "kind": "call",
+                "leaf_index": null,
+                "leaf_kind": null,
+                "literal": {
+                  "is_literal": false
+                },
+                "result_type": "rextio-networkx/bfs-edges-i64",
+                "target": "rextio_networkx.bfs_edges"
+              },
+              "kind": "call",
+              "line": 22,
+              "operand_literals": [
+                {
+                  "is_literal": false
+                },
+                {
+                  "is_literal": false
+                }
+              ],
+              "operand_types": [
+                "rextio-networkx/graph-i64",
+                "rextio-networkx/node-i64"
+              ],
+              "plugin_id": "rextio-networkx",
+              "result_type": "rextio-networkx/bfs-edges-i64",
+              "rule_id": "rextio-networkx/bfs-edges",
+              "target": "rextio_networkx.bfs_edges"
+            },
+            {
+              "column": 21,
+              "end_column": 47,
+              "end_line": 22,
+              "expression": {
+                "children": [
+                  {
+                    "children": [],
+                    "keywords": [],
+                    "kind": "leaf",
+                    "leaf_index": 0,
+                    "leaf_kind": "name",
+                    "literal": {
+                      "is_literal": false
+                    },
+                    "result_type": "rextio-networkx/edgelist-i64",
+                    "target": ""
+                  }
+                ],
+                "keywords": [],
+                "kind": "call",
+                "leaf_index": null,
+                "leaf_kind": null,
+                "literal": {
+                  "is_literal": false
+                },
+                "result_type": "rextio-networkx/graph-i64",
+                "target": "rextio_networkx.graph_from_edgelist"
+              },
+              "kind": "call",
+              "line": 22,
+              "operand_literals": [
+                {
+                  "is_literal": false
+                }
+              ],
+              "operand_types": [
+                "rextio-networkx/edgelist-i64"
+              ],
+              "plugin_id": "rextio-networkx",
+              "result_type": "rextio-networkx/graph-i64",
+              "rule_id": "rextio-networkx/graph-from-edgelist",
+              "target": "rextio_networkx.graph_from_edgelist"
+            }
+          ],
+          "plugin_type_keys": [
+            "rextio-networkx/bfs-edges-i64",
+            "rextio-networkx/edgelist-i64",
+            "rextio-networkx/node-i64"
+          ],
+          "qualname": "nx_bench_app.kernels.bfs_product",
+          "rejection_codes": [],
+          "route": "native-plugin:rextio-networkx"
+        },
+        {
+          "accepted": true,
+          "boundary_call_targets": [],
+          "calls": [
+            {
+              "arg_types": [
+                null,
+                null
+              ],
+              "column": 11,
+              "in_loop": false,
+              "line": 29,
+              "target": "rextio_networkx.dijkstra_path_lengths"
+            },
+            {
+              "arg_types": [
+                null
+              ],
+              "column": 33,
+              "in_loop": false,
+              "line": 29,
+              "target": "rextio_networkx.weighted_graph_from_edgelist"
+            }
+          ],
+          "column": 0,
+          "diagnostics": [],
+          "embedding_reason": null,
+          "explicitly_marked": false,
+          "external_accelerator": null,
+          "file_path": "/private/var/folders/lc/fscpgs615pq83nyy1gkh1nn40000gn/T/rextio-networkx-bench-ce24aq5u/src/nx_bench_app/kernels.py",
+          "inferred_arg_types": {},
+          "inferred_return_type": null,
+          "is_embedding_candidate": false,
+          "is_native_candidate": true,
+          "line": 25,
+          "module_name": "nx_bench_app.kernels",
+          "name": "dijkstra_product",
+          "native_runtime_semantics": false,
+          "native_status": "accepted",
+          "native_target_language": "rust",
+          "plugin_claims": [
+            {
+              "column": 11,
+              "end_column": 77,
+              "end_line": 29,
+              "expression": {
+                "children": [
+                  {
+                    "children": [],
+                    "keywords": [],
+                    "kind": "leaf",
+                    "leaf_index": 0,
+                    "leaf_kind": "opaque",
+                    "literal": {
+                      "is_literal": false
+                    },
+                    "result_type": "rextio-networkx/weighted-graph-i64-f64",
+                    "target": ""
+                  },
+                  {
+                    "children": [],
+                    "keywords": [],
+                    "kind": "leaf",
+                    "leaf_index": 1,
+                    "leaf_kind": "name",
+                    "literal": {
+                      "is_literal": false
+                    },
+                    "result_type": "rextio-networkx/node-i64",
+                    "target": ""
+                  }
+                ],
+                "keywords": [],
+                "kind": "call",
+                "leaf_index": null,
+                "leaf_kind": null,
+                "literal": {
+                  "is_literal": false
+                },
+                "result_type": "rextio-networkx/dijkstra-lengths-i64",
+                "target": "rextio_networkx.dijkstra_path_lengths"
+              },
+              "kind": "call",
+              "line": 29,
+              "operand_literals": [
+                {
+                  "is_literal": false
+                },
+                {
+                  "is_literal": false
+                }
+              ],
+              "operand_types": [
+                "rextio-networkx/weighted-graph-i64-f64",
+                "rextio-networkx/node-i64"
+              ],
+              "plugin_id": "rextio-networkx",
+              "result_type": "rextio-networkx/dijkstra-lengths-i64",
+              "rule_id": "rextio-networkx/dijkstra-path-lengths",
+              "target": "rextio_networkx.dijkstra_path_lengths"
+            },
+            {
+              "column": 33,
+              "end_column": 68,
+              "end_line": 29,
+              "expression": {
+                "children": [
+                  {
+                    "children": [],
+                    "keywords": [],
+                    "kind": "leaf",
+                    "leaf_index": 0,
+                    "leaf_kind": "name",
+                    "literal": {
+                      "is_literal": false
+                    },
+                    "result_type": "rextio-networkx/weighted-edgelist-i64-f64",
+                    "target": ""
+                  }
+                ],
+                "keywords": [],
+                "kind": "call",
+                "leaf_index": null,
+                "leaf_kind": null,
+                "literal": {
+                  "is_literal": false
+                },
+                "result_type": "rextio-networkx/weighted-graph-i64-f64",
+                "target": "rextio_networkx.weighted_graph_from_edgelist"
+              },
+              "kind": "call",
+              "line": 29,
+              "operand_literals": [
+                {
+                  "is_literal": false
+                }
+              ],
+              "operand_types": [
+                "rextio-networkx/weighted-edgelist-i64-f64"
+              ],
+              "plugin_id": "rextio-networkx",
+              "result_type": "rextio-networkx/weighted-graph-i64-f64",
+              "rule_id": "rextio-networkx/weighted-graph-from-edgelist",
+              "target": "rextio_networkx.weighted_graph_from_edgelist"
+            }
+          ],
+          "plugin_type_keys": [
+            "rextio-networkx/dijkstra-lengths-i64",
+            "rextio-networkx/node-i64",
+            "rextio-networkx/weighted-edgelist-i64-f64"
+          ],
+          "qualname": "nx_bench_app.kernels.dijkstra_product",
+          "rejection_codes": [],
+          "route": "native-plugin:rextio-networkx"
+        }
+      ],
+      "import_policies": [
+        {
+          "max_depth": 0,
+          "origin": "external-plugin",
+          "package": "rextio_networkx",
+          "plugin": "rextio-networkx",
+          "policy": "plugin",
+          "reason": "active plugin 'rextio-networkx' declares support for this package",
+          "target": "rextio_networkx.BfsEdgesI64",
+          "visible_name": "BfsEdgesI64"
+        },
+        {
+          "max_depth": 0,
+          "origin": "external-plugin",
+          "package": "rextio_networkx",
+          "plugin": "rextio-networkx",
+          "policy": "plugin",
+          "reason": "active plugin 'rextio-networkx' declares support for this package",
+          "target": "rextio_networkx.ComponentList",
+          "visible_name": "ComponentList"
+        },
+        {
+          "max_depth": 0,
+          "origin": "external-plugin",
+          "package": "rextio_networkx",
+          "plugin": "rextio-networkx",
+          "policy": "plugin",
+          "reason": "active plugin 'rextio-networkx' declares support for this package",
+          "target": "rextio_networkx.DijkstraLengthsI64",
+          "visible_name": "DijkstraLengthsI64"
+        },
+        {
+          "max_depth": 0,
+          "origin": "external-plugin",
+          "package": "rextio_networkx",
+          "plugin": "rextio-networkx",
+          "policy": "plugin",
+          "reason": "active plugin 'rextio-networkx' declares support for this package",
+          "target": "rextio_networkx.EdgeListI64",
+          "visible_name": "EdgeListI64"
+        },
+        {
+          "max_depth": 0,
+          "origin": "external-plugin",
+          "package": "rextio_networkx",
+          "plugin": "rextio-networkx",
+          "policy": "plugin",
+          "reason": "active plugin 'rextio-networkx' declares support for this package",
+          "target": "rextio_networkx.NodeI64",
+          "visible_name": "NodeI64"
+        },
+        {
+          "max_depth": 0,
+          "origin": "external-plugin",
+          "package": "rextio_networkx",
+          "plugin": "rextio-networkx",
+          "policy": "plugin",
+          "reason": "active plugin 'rextio-networkx' declares support for this package",
+          "target": "rextio_networkx.WeightedEdgeListI64F64",
+          "visible_name": "WeightedEdgeListI64F64"
+        },
+        {
+          "max_depth": 0,
+          "origin": "external-plugin",
+          "package": "rextio_networkx",
+          "plugin": "rextio-networkx",
+          "policy": "plugin",
+          "reason": "active plugin 'rextio-networkx' declares support for this package",
+          "target": "rextio_networkx.bfs_edges",
+          "visible_name": "bfs_edges"
+        },
+        {
+          "max_depth": 0,
+          "origin": "external-plugin",
+          "package": "rextio_networkx",
+          "plugin": "rextio-networkx",
+          "policy": "plugin",
+          "reason": "active plugin 'rextio-networkx' declares support for this package",
+          "target": "rextio_networkx.connected_components_from_edgelist",
+          "visible_name": "connected_components_from_edgelist"
+        },
+        {
+          "max_depth": 0,
+          "origin": "external-plugin",
+          "package": "rextio_networkx",
+          "plugin": "rextio-networkx",
+          "policy": "plugin",
+          "reason": "active plugin 'rextio-networkx' declares support for this package",
+          "target": "rextio_networkx.dijkstra_path_lengths",
+          "visible_name": "dijkstra_path_lengths"
+        },
+        {
+          "max_depth": 0,
+          "origin": "external-plugin",
+          "package": "rextio_networkx",
+          "plugin": "rextio-networkx",
+          "policy": "plugin",
+          "reason": "active plugin 'rextio-networkx' declares support for this package",
+          "target": "rextio_networkx.graph_from_edgelist",
+          "visible_name": "graph_from_edgelist"
+        },
+        {
+          "max_depth": 0,
+          "origin": "external-plugin",
+          "package": "rextio_networkx",
+          "plugin": "rextio-networkx",
+          "policy": "plugin",
+          "reason": "active plugin 'rextio-networkx' declares support for this package",
+          "target": "rextio_networkx.weighted_graph_from_edgelist",
+          "visible_name": "weighted_graph_from_edgelist"
+        }
+      ],
+      "imports": {
+        "BfsEdgesI64": "rextio_networkx.BfsEdgesI64",
+        "ComponentList": "rextio_networkx.ComponentList",
+        "DijkstraLengthsI64": "rextio_networkx.DijkstraLengthsI64",
+        "EdgeListI64": "rextio_networkx.EdgeListI64",
+        "NodeI64": "rextio_networkx.NodeI64",
+        "WeightedEdgeListI64F64": "rextio_networkx.WeightedEdgeListI64F64",
+        "bfs_edges": "rextio_networkx.bfs_edges",
+        "connected_components_from_edgelist": "rextio_networkx.connected_components_from_edgelist",
+        "dijkstra_path_lengths": "rextio_networkx.dijkstra_path_lengths",
+        "graph_from_edgelist": "rextio_networkx.graph_from_edgelist",
+        "weighted_graph_from_edgelist": "rextio_networkx.weighted_graph_from_edgelist"
+      },
+      "logger_group_targets": {},
+      "logger_names": [],
+      "module_name": "nx_bench_app.kernels",
+      "top_level": null
+    }
+  ],
+  "native_candidates": [
+    "nx_bench_app.kernels.bfs_product",
+    "nx_bench_app.kernels.components_product",
+    "nx_bench_app.kernels.dijkstra_product"
+  ],
+  "native_top_levels": [],
+  "project_root": "/private/var/folders/lc/fscpgs615pq83nyy1gkh1nn40000gn/T/rextio-networkx-bench-ce24aq5u",
+  "rejected_native": [],
+  "rejected_native_top_levels": []
+}
