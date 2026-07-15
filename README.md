@@ -129,14 +129,23 @@ raw samples plus correctness/route/provenance digests.
 
 The tracked [`benchmarks/results/report.md`](benchmarks/results/report.md) and
 [`benchmarks/results/raw_samples.json`](benchmarks/results/raw_samples.json)
-are retained as **historical, stale evidence**. Their 56 correctness-valid
-cells and 2.70x–4.40x measured medians came from product commit `e40bd64` and
-the superseded core `ac2b79d…`; they predate both the current harness tip and
-the API-1.3 type-support/serializer closure. They are not a speed claim for the
-current branch. A new authoritative 56-cell run against `2bd1d1d…` remains a
-serialized pre-release gate. The harness retains every future loss or `none`
-finding rather than suppressing it, and never labels a standalone PyO3 row as
-product speedup.
+are the current authoritative full-run evidence for product commit
+`242d17828e96e3a2ff1914cd40324c8b7128d981` against core
+`2bd1d1da0cf59e97d1659606bcb1ec12491e032c` / API 1.3. `check.json` accepted
+all three generated native routes (connected components, BFS, and Dijkstra),
+and all 56 cells preserved their order/type-sensitive native/fallback
+correctness digests. The one-time build took 6.640 s; first-call warm-up ranged
+from 0.011–0.607 ms native and 0.027–120.733 ms fallback. Every retained sample
+was at least 19.271 ms against a 41 ns timer floor.
+
+Across the measured 4–2048 requested-node matrix, median fallback/native
+speedups were **2.70x–4.49x**, with no measured loss cells. All eight
+algorithm/family groups have a sustained measured break-even at requested
+nodes = 4: their paired-bootstrap 95% intervals remain favorable at every
+larger measured size. This does **not** claim a break-even below 4 nodes or
+generalize beyond the exact signed-i64 / finite-f64 contracts and recorded
+inputs. The harness retains every future loss or `none` finding rather than
+suppressing it, and never labels a standalone PyO3 row as product speedup.
 
 ## Development
 

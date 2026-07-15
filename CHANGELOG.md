@@ -40,9 +40,10 @@ Changelog and Semantic Versioning conventions.
   order/type-preserving correctness digests, route evidence, exact provenance,
   measured sustained break-even, and explicit non-claims.
 - Recorded 56 correctness-valid product cells over 4–2048 nodes. Median
-  fallback/native speedups were 2.70x–4.40x; every family had sustained measured
-  break-even at the smallest measured size (4), with no observed loss cells
-  (explicitly not generalized below four nodes or beyond the recorded inputs).
+  fallback/native speedups were 2.70x–4.49x; all eight algorithm/family groups
+  had sustained measured break-even at the smallest measured size (4), with no
+  observed loss cells. This is not generalized below four nodes, outside the
+  measured matrix, or beyond the exact covered input contracts.
 - Plugin API 1.3 type-owned Rust support for signature-only accepted functions,
   including exact ordered serializers for `EdgeListI64` and
   `WeightedEdgeListI64F64` returns, resident-signature definitions, exact-text
@@ -62,11 +63,13 @@ Changelog and Semantic Versioning conventions.
   resident-compatible ordered petgraph constructor.
 - Test collection, E2E setup, and benchmark startup verify core HEAD, plugin API
   and `rextio.__file__` under the frozen source checkout.
-- The prior 56-cell raw samples and measurement table remain unchanged as
-  historical evidence from product commit `e40bd64` and superseded core
-  `ac2b79d…`, but are now explicitly stale. A fresh authoritative run against
-  the integrated core and current branch remains required before any current
-  speed claim or release decision.
+- Replace the stale benchmark artifacts with an authoritative 56-cell run from
+  product commit `242d17828e96e3a2ff1914cd40324c8b7128d981` against integrated
+  core `2bd1d1da0cf59e97d1659606bcb1ec12491e032c` / API 1.3. All three product
+  routes and order/type-sensitive digests passed; the one-time build was
+  6.640 s, first-call warm-up was 0.011–0.607 ms native and 0.027–120.733 ms
+  fallback, and every retained sample cleared 19.271 ms against a 41 ns timer
+  floor.
 
 ### Security
 

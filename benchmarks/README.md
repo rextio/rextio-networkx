@@ -39,8 +39,26 @@ No direct-PyO3 diagnostic row is presented as product performance. A
 native/fallback order/type-preserving digest mismatch invalidates the cell and
 suppresses its speedup.
 
-The checked-in result currently predates this baseline: it used product commit
-`e40bd64` and core `ac2b79d…`. It is retained only as historical raw evidence
-and is not authoritative for the current branch. The director must run the full
-56-cell matrix serially after real-Cargo verification; only that new run may
-support a current performance statement.
+## Current authoritative result
+
+The checked-in `results/{check.json,raw_samples.json,report.md}` comes from the
+successful full 56-cell run at product commit
+`242d17828e96e3a2ff1914cd40324c8b7128d981`, frozen core
+`2bd1d1da0cf59e97d1659606bcb1ec12491e032c`, and plugin API 1.3. Route evidence
+accepted connected components, BFS, and Dijkstra as
+`native-plugin:rextio-networkx`; all 56 order/type-sensitive correctness
+digests matched between native and fallback. The copied `check.json` SHA-256 is
+`69bd6fd77dd26cf4cc2a40ec6536e126954bd0f8c39aa72be7d6e14906a3ea92`.
+
+The one-time build took 6.640 s and is excluded from steady-state latency.
+First-call warm-up ranged from 0.011–0.607 ms native and 0.027–120.733 ms
+fallback. The minimum retained paired sample was 19.271 ms against a 41 ns
+timer floor. Median fallback/native speedups span **2.70x–4.49x**, with zero
+measured loss cells. Each of the eight algorithm/family groups has a sustained
+measured break-even at requested nodes = 4 because its paired-bootstrap 95%
+interval remains favorable through every larger measured size.
+
+Four nodes is the smallest measured input. These results make no performance
+or break-even claim below 4 nodes, outside the measured 4–2048 matrix, or
+beyond the exact signed-i64 / finite-f64 adapter contracts and recorded graph
+families.
