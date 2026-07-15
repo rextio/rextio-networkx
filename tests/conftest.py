@@ -25,7 +25,7 @@ import rextio  # noqa: E402
 from rextio.plugins.api import PLUGIN_API_VERSION  # noqa: E402
 
 _actual_sha = subprocess.run(
-    ["rtk", "git", "-C", str(CORE_ROOT), "rev-parse", "HEAD"],
+    ["git", "-C", str(CORE_ROOT), "rev-parse", "HEAD"],
     capture_output=True,
     text=True,
     check=True,

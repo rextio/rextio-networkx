@@ -78,7 +78,7 @@ def _baseline() -> dict[str, object]:
     import rextio_networkx
     from rextio.plugins.api import PLUGIN_API_VERSION
 
-    core_sha = _run_text(["rtk", "git", "-C", str(CORE_ROOT), "rev-parse", "HEAD"])
+    core_sha = _run_text(["git", "-C", str(CORE_ROOT), "rev-parse", "HEAD"])
     if core_sha != CORE_SHA:
         raise RuntimeError(f"benchmark requires core {CORE_SHA}, found {core_sha}")
     if PLUGIN_API_VERSION != "1.3":
@@ -90,7 +90,7 @@ def _baseline() -> dict[str, object]:
         "core_sha": core_sha,
         "plugin_api": PLUGIN_API_VERSION,
         "rextio_file": str(rextio_file),
-        "plugin_commit": _run_text(["rtk", "git", "-C", str(REPO_ROOT), "rev-parse", "HEAD"]),
+        "plugin_commit": _run_text(["git", "-C", str(REPO_ROOT), "rev-parse", "HEAD"]),
         "benchmark_harness_sha256": hashlib.sha256(Path(__file__).read_bytes()).hexdigest(),
         "benchmark_cases_sha256": hashlib.sha256(
             (Path(__file__).with_name("cases.py")).read_bytes()
@@ -102,8 +102,8 @@ def _baseline() -> dict[str, object]:
         "python_executable": sys.executable,
         "platform": platform.platform(),
         "machine": platform.machine(),
-        "cargo": _run_text(["rtk", "proxy", "cargo", "--version"]),
-        "rustc": _run_text(["rtk", "proxy", "rustc", "--version"]),
+        "cargo": _run_text(["cargo", "--version"]),
+        "rustc": _run_text(["rustc", "--version"]),
     }
 
 
@@ -342,17 +342,16 @@ def _break_even(cells: list[dict[str, object]]) -> dict[str, object]:
     groups = sorted({(str(cell["algorithm"]), str(cell["family"])) for cell in cells})
     for algorithm, family in groups:
         group = sorted(
-            (
-                cell
-                for cell in cells
-                if cell["algorithm"] == algorithm and cell["family"] == family and cell["valid"]
-            ),
+            (cell for cell in cells if cell["algorithm"] == algorithm and cell["family"] == family),
             key=lambda cell: int(cell["requested_nodes"]),
         )
         sustained: int | None = None
         for index, cell in enumerate(group):
             suffix = group[index:]
-            if all(float(item["paired_ci"]["log_ratio_ci95"][1]) < 0.0 for item in suffix):  # type: ignore[index]
+            if cell["valid"] is True and all(
+                item["valid"] is True and float(item["paired_ci"]["log_ratio_ci95"][1]) < 0.0  # type: ignore[index]
+                for item in suffix
+            ):
                 sustained = int(cell["requested_nodes"])
                 break
         results[f"{algorithm}/{family}"] = sustained if sustained is not None else "none"

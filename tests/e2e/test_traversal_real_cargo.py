@@ -14,7 +14,7 @@ import pytest
 
 import rextio
 from rextio.plugins.api import PLUGIN_API_VERSION
-from rextio.plugins.testing import CertifiedProject, build_certification_project
+from rextio.plugins.testing import CertifiedProject, EquivalenceChecker, build_certification_project
 
 CORE_ROOT = Path("/Volumes/Data/workspace/rextio/rextio-core-next").resolve()
 CORE_SHA = "ac2b79d304f13abaaecaf7714f897574c3b6256f"
@@ -71,7 +71,7 @@ def resident_to_materialized(edges: EdgeListI64) -> ComponentList:
 
 def _core_sha() -> str:
     return subprocess.run(
-        ["rtk", "git", "-C", str(CORE_ROOT), "rev-parse", "HEAD"],
+        ["git", "-C", str(CORE_ROOT), "rev-parse", "HEAD"],
         capture_output=True,
         text=True,
         check=True,
@@ -163,10 +163,10 @@ def _bfs_equal(left: object, right: object) -> bool:
     return type(left) is list and type(right) is list and left == right
 
 
-def _dijkstra_signature(result: object) -> list[tuple[int, type, str]]:
+def _dijkstra_signature(result: object) -> list[tuple[type, object, type, str]]:
     assert type(result) is dict
     return [
-        (key, type(value), value.hex() if type(value) is float else str(value))
+        (type(key), key, type(value), value.hex() if type(value) is float else str(value))
         for key, value in result.items()
     ]
 
@@ -247,6 +247,22 @@ def _signature(error: BaseException) -> tuple[type[BaseException], str, tuple[ob
     return type(error), str(error), error.args
 
 
+def _leg_error_signatures(
+    checker: EquivalenceChecker,
+    args: tuple[object, ...],
+) -> tuple[
+    tuple[type[BaseException], str, tuple[object, ...]],
+    tuple[type[BaseException], str, tuple[object, ...]],
+]:
+    signatures = []
+    for mode in ("native", "fallback"):
+        (kind, value), _ = checker._run(mode, args)
+        assert kind == "raised"
+        assert isinstance(value, Exception)
+        signatures.append(_signature(value))
+    return signatures[0], signatures[1]
+
+
 @pytest.mark.parametrize(
     ("function", "args", "expected"),
     [
@@ -282,29 +298,32 @@ def test_native_and_fallback_match_exact_dynamic_errors(
     expected: tuple[type[BaseException], str],
 ) -> None:
     checker = project.equivalence_checker(f"nx_traversal_app.kernels.{function}")
-    with pytest.raises(expected[0]) as caught:
-        checker(*args)
-    assert _signature(caught.value) == (expected[0], expected[1], (expected[1],))
+    expected_signature = (expected[0], expected[1], (expected[1],))
+    native_signature, fallback_signature = _leg_error_signatures(checker, args)
+    assert native_signature == expected_signature
+    assert fallback_signature == expected_signature
 
 
 def test_native_and_fallback_match_exact_missing_source_errors(project: CertifiedProject) -> None:
     bfs = project.equivalence_checker("nx_traversal_app.kernels.bfs_product")
-    with pytest.raises(nx.NetworkXError) as bfs_error:
-        bfs([], -9)
-    assert _signature(bfs_error.value) == (
+    expected_bfs = (
         nx.NetworkXError,
         "The node -9 is not in the graph.",
         ("The node -9 is not in the graph.",),
     )
+    native_bfs, fallback_bfs = _leg_error_signatures(bfs, ([], -9))
+    assert native_bfs == expected_bfs
+    assert fallback_bfs == expected_bfs
 
     dijkstra = project.equivalence_checker("nx_traversal_app.kernels.dijkstra_product")
-    with pytest.raises(nx.NodeNotFound) as dijkstra_error:
-        dijkstra([], -9)
-    assert _signature(dijkstra_error.value) == (
+    expected_dijkstra = (
         nx.NodeNotFound,
         "Node -9 not found in graph",
         ("Node -9 not found in graph",),
     )
+    native_dijkstra, fallback_dijkstra = _leg_error_signatures(dijkstra, ([], -9))
+    assert native_dijkstra == expected_dijkstra
+    assert fallback_dijkstra == expected_dijkstra
 
 
 def test_build_records_exact_core_and_petgraph_provenance(project: CertifiedProject) -> None:
