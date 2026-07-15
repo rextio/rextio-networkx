@@ -1,123 +1,144 @@
 # rextio-networkx
 
-A **private incubator** [Rextio](https://github.com/rextio/rextio) plugin that
-lowers one covered NetworkX construction route to native Rust: a typed
-undirected integer edge list converted once to an immutable local
-[`petgraph`](https://crates.io/crates/petgraph) graph, with connected
-components computed in Rust and materialized as the exact `list[set[int]]`
-NetworkX returns.
+A **private incubator** Rextio plugin for exact, deliberately narrow NetworkX
+3.5 routes on real `petgraph::UnGraph` resident values.
 
-It implements Rextio **plugin API 1.2** (`rextio.plugins.api`, protocol v2:
-describe/covers + claim/lower + type vocabulary + pinned crate injection) and
-requires `rextio>=0.1.2,<0.2`. This is a WP-1 foundation cut — it makes no
-performance claims (WP-2 measures the integrated route).
+This branch requires unreleased Rextio plugin API **1.3** at exact integrated
+core commit `ac2b79d304f13abaaecaf7714f897574c3b6256f`. Released
+`rextio==0.1.2` implements API 1.2 and is not compatible. The package metadata
+therefore pins the core-next Git commit rather than a released version range;
+publication waits for a core release that actually denotes API 1.3.
 
-## Public / fallback adapter
+## Product routes
 
-The minimum reliable surface is the explicit adapter, whose ordinary Python
-implementation delegates to pinned NetworkX 3.5:
-
-```python
-from rextio_networkx import connected_components_from_edgelist
-
-edges = [(0, 1), (1, 2), (10, 11)]
-connected_components_from_edgelist(edges)
-# [{0, 1, 2}, {10, 11}]
-```
-
-It reproduces `list(networkx.connected_components(networkx.from_edgelist(edges)))`
-exactly. NetworkX 3.5 is a pinned **runtime dependency** (the adapter delegates
-to it), imported lazily so `import rextio_networkx` stays cheap and does not
-eagerly load NetworkX or the Rextio analyzer.
-
-## Native route
-
-When Rextio compiles a function that calls the adapter with a typed edge-list
-argument, the call lowers to the native `petgraph` route. Annotate the argument
-and return with the plugin's vocabulary so the types resolve statically:
+The public proof shapes are:
 
 ```python
 from rextio_networkx import (
-    ComponentList,
+    BfsEdgesI64,
+    DijkstraLengthsI64,
     EdgeListI64,
-    connected_components_from_edgelist,
+    NodeI64,
+    WeightedEdgeListI64F64,
+    bfs_edges,
+    dijkstra_path_lengths,
+    graph_from_edgelist,
+    weighted_graph_from_edgelist,
 )
 
 
-def components(edges: EdgeListI64) -> ComponentList:
-    return connected_components_from_edgelist(edges)
+def bfs_product(edges: EdgeListI64, source: NodeI64) -> BfsEdgesI64:
+    return bfs_edges(graph_from_edgelist(edges), source)
+
+
+def dijkstra_product(
+    edges: WeightedEdgeListI64F64,
+    source: NodeI64,
+) -> DijkstraLengthsI64:
+    return dijkstra_path_lengths(
+        weighted_graph_from_edgelist(edges),
+        source,
+    )
 ```
 
-- `EdgeListI64` is `list[tuple[int, int]]` — an undirected simple-graph edge
-  list of signed 64-bit integer node labels.
-- `ComponentList` is `list[set[int]]` — the connected-components result.
+The constructor result is an opaque plugin-owned resident graph
+(`PluginType(conversion=None)`). Native code owns a real `petgraph::UnGraph`
+and an insertion-order sidecar; the consumer borrows it. Only the final
+`list[tuple[int, int]]` or ordered Python `dict` crosses back to Python. A
+resident value cannot be returned to Python or sent through a materialized
+Python consumer (`RXT092`), and it cannot persist across wrapper calls.
 
-Both the native and fallback legs return an identical `list[set[int]]`.
+The fallback legs execute these exact NetworkX 3.5 constructions:
 
-## Covered semantics
+```python
+G = nx.Graph()
+G.add_edges_from(edges)
+list(nx.bfs_edges(G, source))
 
-Certified value-equivalent against CPython NetworkX 3.5 (rule record
-`RXTP-NETWORKX-001`, `verified=True`):
+G = nx.Graph()
+G.add_weighted_edges_from(edges)
+nx.single_source_dijkstra_path_length(G, source, weight="weight")
+```
 
-- undirected simple graphs; signed i64 node labels
-- edge insertion order; duplicate edges; self-loops
-- disconnected and empty edge lists
-- component list order matches NetworkX (each component ordered by the first
-  insertion of one of its nodes); set element order is not observable through
-  equality
+### Exact order and value semantics
 
-Values are bit-exact (integer sets), so certification is value-equivalence, not
-within-tolerance.
+- Input is scanned left-to-right. First endpoint encounter fixes node order.
+- First undirected edge insertion fixes each adjacency position. Duplicate and
+  reversed-duplicate edges do not move it; a self-loop appears once in neighbor
+  order.
+- A weighted duplicate updates the existing petgraph edge; the last weight
+  wins exactly as in `nx.Graph`.
+- BFS uses the preserved neighbor order and returns the exact ordered concrete
+  `list[tuple[int, int]]`.
+- Dijkstra uses `(distance, monotonic discovery counter, node)` heap semantics,
+  inserts keys when finalized, ignores equal-distance rediscovery, skips stale
+  entries, supports cumulative `+inf`, and can decrease a previously discovered
+  infinite route to finite. It uses partial comparison, not `total_cmp`.
+- Dijkstra's source value is the exact integer `0`; every reached non-source
+  value is a Python `float`. Tests compare ordered `list(result.items())`,
+  exact key/value types, and float `hex()` values.
+- Missing BFS source raises `networkx.NetworkXError("The node X is not in the
+  graph.")`. Missing Dijkstra source raises
+  `networkx.NodeNotFound("Node X not found in graph")`.
 
-## Boundaries (fail-closed)
+The WP-1 typed `connected_components_from_edgelist` route remains available
+and now shares the strict raw edge parser and ordered petgraph constructor.
 
-- **Isolated nodes** that appear in no edge cannot be represented by edge-only
-  input — both legs omit them identically (`RXTP-NETWORKX-011`).
-- **A wrong argument _type_** (a value whose resolved type is not `EdgeListI64`)
-  is rejected at analysis time with `RXTP-NETWORKX-010`.
-- **Node labels that type-check as `EdgeListI64` but break the i64 value
-  contract at runtime** are rejected deterministically at the native boundary,
-  never silently coerced:
-  - a Python `bool` label raises `TypeError` — `bool` is an `int` subclass, so a
-    by-value extraction would coerce `True`/`False` to `1`/`0` and the native
-    leg would diverge in element *type* from the NetworkX fallback (which keeps
-    `bool`) while comparing equal through set `==`;
-  - a label outside the signed i64 range raises `OverflowError`.
+## Fail-closed boundary
 
-  These are fail-closed runtime type-contract violations, **not** analysis-time
-  `RXTP-NETWORKX-*` rejections and **not** per-call fallbacks.
-- **The raw NetworkX spelling** `list(nx.connected_components(nx.from_edgelist(edges)))`,
-  directed graphs, graph options, and weighted/attributed edges are not lowered
-  (`RXTP-NETWORKX-019`) — they stay on the Python fallback. The raw spelling is
-  not lowerable under core plugin API 1.2: nested calls are opaque atomic leaves
-  offered as independent sites, and the intermediate `networkx.Graph` and the
-  lazy `connected_components` generator have no boundary representation, while
-  `list(...)` is a core builtin that does not consume a plugin generator type.
-  Use the explicit adapter instead.
-- A covered adapter call with a resolved-but-unsupported argument type is
-  rejected with `RXTP-NETWORKX-010` so its guidance is delivered.
+The validation precedence is edge-list container, each edge and exact arity,
+endpoints, weight, source, then source membership. Native and fallback modes
+match exception class, `str(e)`, and one-string `e.args`.
 
-All plugin diagnostics live in the `RXTP-NETWORKX-*` namespace.
+- edge container: exact `list` only
+- unweighted occurrence: exact 2-`tuple`
+- weighted occurrence: exact 3-`tuple`
+- nodes/source: exact Python `int` (not `bool` or a subclass), signed-i64 range
+- weight: exact Python `float` (not `int`, `bool`, or subclass), finite and
+  non-negative; `-0.0` is accepted
 
-## Crate dependency
+Every occurrence is validated before deduplication, so an invalid overwritten
+duplicate still raises. Malformed arity is checked before indexing. Input
+objects are never mutated.
 
-The generated helper depends on one pinned crate, injected and reported through
-the core plugin crate-dependency contract:
+A recognized traversal target with wrong arity, keywords/options, a plain core
+`int` instead of `NodeI64`, wrong resident type, or missing/unresolved required
+plugin annotation is rejected statically as `RXTP-NETWORKX-020`. Directed and
+multigraph inputs, object/mixed labels, target/depth/cutoff/weight options, and
+raw NetworkX spellings are outside this surface and remain fallback-only.
 
-- `petgraph = "=0.6.5"`
+## Benchmark evidence
+
+[`benchmarks/bench_product_routes.py`](benchmarks/bench_product_routes.py)
+builds a real generated wrapper and compares two persistent mode processes. It
+includes extraction, ordered deduplication, graph construction, algorithm,
+exact result materialization, destruction, and wrapper overhead; one-time build
+and warm-up are separate. Paired rounds alternate AB/BA, use a common iteration
+count with every sample at least 10 ms, control GC symmetrically, and preserve
+raw samples plus correctness/route/provenance digests.
+
+See [`benchmarks/results/report.md`](benchmarks/results/report.md) and
+[`benchmarks/results/raw_samples.json`](benchmarks/results/raw_samples.json)
+after running the full benchmark. A standalone PyO3 prototype is not used as a
+product speedup row. Losses and `none` break-even findings are retained rather
+than suppressed.
 
 ## Development
 
 ```bash
 uv venv --python 3.11 .venv
-uv pip install --python .venv/bin/python "rextio>=0.1.2,<0.2"
+uv pip install --python .venv/bin/python -e ../rextio-core-next
 uv pip install --python .venv/bin/python --no-deps -e .
-uv pip install --python .venv/bin/python "networkx==3.5" pytest hypothesis ruff mypy
+uv pip install --python .venv/bin/python \
+  'networkx==3.5' pytest hypothesis ruff mypy build twine check-wheel-contents
+
 .venv/bin/python -m pytest
+.venv/bin/ruff check src tests benchmarks
+.venv/bin/ruff format --check src tests benchmarks
+.venv/bin/mypy src
+.venv/bin/python -m build
 ```
 
-The real-Cargo certification test (`tests/e2e/test_components_real_cargo.py`)
-is skipped unless `cargo` is on `PATH`; it builds the fixture project once,
-proves the native `petgraph` route was selected, and compares the native and
-fallback legs (empty, duplicates/self-loop, negative labels, multiple
-components).
+Test collection, real-Cargo fixtures, and benchmark startup verify the exact
+core HEAD, API version, and `rextio.__file__` under the core-next source
+checkout so a globally installed released core cannot satisfy the gates.

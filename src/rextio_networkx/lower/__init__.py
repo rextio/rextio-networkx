@@ -4,7 +4,7 @@ from __future__ import annotations
 
 from rextio.plugins.api import ClaimSite, LoweredExpr, LoweringContext
 
-from rextio_networkx.lower import components
+from rextio_networkx.lower import components, traversal
 
 __all__ = ["lower"]
 
@@ -16,6 +16,9 @@ def lower(claimed: ClaimSite, ctx: LoweringContext) -> LoweredExpr:
     with ``?``; the helper ``fn`` travels in ``helpers`` and is deduplicated by
     exact text in core codegen.
     """
+    result = traversal.try_lower(claimed, ctx)
+    if result is not None:
+        return result
     result = components.try_lower(claimed, ctx)
     if result is not None:
         return result

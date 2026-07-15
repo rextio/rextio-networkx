@@ -1,11 +1,10 @@
 """The rule records and coverage rextio-networkx describes to Rextio core.
 
 L2 rule records per the Rextio tooling contract, plus the coverage declaration.
-The set covers the single implemented native construction route (a typed
-undirected signed-i64 edge list converted once to an immutable local
-``petgraph`` graph, with connected components computed in Rust) and the explicit
-exclusions around it. See :mod:`rextio_networkx.rules.records` for the record
-semantics and :mod:`rextio_networkx.rules.coverage` for the coverage surface.
+The set covers connected components plus exact API-1.3 resident graph
+constructor/BFS/Dijkstra chains and their explicit exclusions. See
+:mod:`rextio_networkx.rules.records` for semantics and
+:mod:`rextio_networkx.rules.coverage` for the declared surface.
 """
 
 from __future__ import annotations

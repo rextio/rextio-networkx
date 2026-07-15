@@ -22,11 +22,9 @@ def try_lower(claimed: ClaimSite, ctx: LoweringContext) -> LoweredExpr | None:
         )
     name = rust_snippets.cc_call_name()
     helpers = rust_snippets.cc_helpers()
-    # The helper takes the `py` token (in scope for plugin-typed functions) and
-    # a borrow of the raw edge-list operand (a Bound<PyList>); it extracts each
-    # node label to i64 at the boundary (rejecting bool / out-of-i64) and
-    # returns PyResult, so end with `?`. Its node-label extractor travels
-    # alongside it and both are deduplicated by exact text in core codegen.
+    # The API-1.3 materialized boundary has already converted the raw list to
+    # ``RxtNxEdgeListI64`` with exact validation. Borrow that owned typed value;
+    # the helper builds petgraph and returns a Python list, hence ``?``.
     return LoweredExpr(
         rust=f"{name}(py, &{ctx.operands[0]})?",
         helpers=helpers,

@@ -1,10 +1,9 @@
 """The rextio-networkx plugin object and entry-point factory.
 
-Implements plugin API 1.2 (``rextio.plugins.api.RextioLoweringPlugin``): the
-protocol-v2 describe/covers surface plus the lowering members — the annotation
-vocabulary, the deterministic claim pass, expression lowering, and the pinned
-``petgraph`` crate dependency. The plugin module itself never imports NetworkX;
-the public/fallback adapter (:mod:`rextio_networkx`) imports it lazily on call.
+Implements private-incubator plugin API 1.3, including resident petgraph values
+that chain from typed constructors into BFS/Dijkstra without a Python graph
+round trip.  The module itself never imports NetworkX; fallback adapters do so
+lazily when called.
 
 Claim and lower logic live in :mod:`rextio_networkx.claim` and
 :mod:`rextio_networkx.lower`; this module is a thin facade.
@@ -41,10 +40,10 @@ __all__ = ["PLUGIN_ID", "RextioNetworkxPlugin", "plugin"]
 
 
 class RextioNetworkxPlugin:
-    """Plugin API 1.2: describes AND lowers the covered edge-list route to Rust."""
+    """Plugin API 1.3 provider for exact narrow NetworkX routes."""
 
     plugin_id = PLUGIN_ID
-    api_version = "1.2"
+    api_version = "1.3"
 
     def to_rextio_plugin(self) -> RextioPlugin:
         """Return the v1 metadata Rextio core registers this plugin under."""
@@ -89,12 +88,10 @@ class RextioNetworkxPlugin:
 
         Deterministic by contract: the decision is a pure function of
         ``(site.kind, site.target, site.operand_types, site.keywords)``. The
-        covered adapter call with a typed :data:`~rextio_networkx.EdgeListI64`
-        argument is :class:`~rextio.plugins.api.Claimed`; the same call with a
-        known-but-unsupported argument type is
-        :class:`~rextio.plugins.api.Rejected` with RXTP-NETWORKX-010 guidance;
-        everything else (unresolved operands, wrong arity, keywords, other
-        targets) is :class:`~rextio.plugins.api.NotCovered`.
+        exact component/traversal shapes are :class:`~rextio.plugins.api.Claimed`.
+        Every recognized traversal miss is :class:`~rextio.plugins.api.Rejected`
+        with RXTP-NETWORKX-020 guidance; unrelated targets are
+        :class:`~rextio.plugins.api.NotCovered`.
         """
         from rextio_networkx.claim import claim as claim_site
 
@@ -103,9 +100,8 @@ class RextioNetworkxPlugin:
     def lower(self, claimed: ClaimSite, ctx: LoweringContext) -> LoweredExpr:
         """Emit the Rust expression for a previously claimed site.
 
-        The emitted expression calls one deterministic ``petgraph`` helper and
-        ends with ``?``; the helper ``fn`` travels in ``helpers`` and is
-        deduplicated by exact text in core codegen.
+        Expressions construct or immutably borrow real resident petgraph values;
+        support items travel in ``helpers`` and are deduplicated by exact text.
         """
         from rextio_networkx.lower import lower as lower_site
 

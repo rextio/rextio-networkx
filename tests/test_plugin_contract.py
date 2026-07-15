@@ -12,6 +12,8 @@ from __future__ import annotations
 
 import subprocess
 import sys
+import tomllib
+from pathlib import Path
 
 from rextio.config.schema import PluginConfig
 from rextio.plugins.api import (
@@ -36,7 +38,7 @@ def test_entry_point_factory_returns_plugin() -> None:
     obj = plugin()
     assert isinstance(obj, RextioNetworkxPlugin)
     assert obj.plugin_id == PLUGIN_ID
-    assert obj.api_version == "1.2"
+    assert obj.api_version == "1.3"
 
 
 def test_registry_loads_and_lowering_is_provided() -> None:
@@ -46,7 +48,7 @@ def test_registry_loads_and_lowering_is_provided() -> None:
     active = next(p for p in reg.active if p.id == PLUGIN_ID)
     assert active.lowering_provided is True
     assert active.rules_provided is True
-    assert active.api_version == "1.2"
+    assert active.api_version == "1.3"
     assert {b.plugin_id for b in reg.providers} == {PLUGIN_ID}
 
 
@@ -56,6 +58,8 @@ def test_covers_declares_networkx_and_adapter() -> None:
     assert "networkx" in coverage.packages
     assert "rextio_networkx" in coverage.packages
     assert "rextio_networkx.connected_components_from_edgelist" in coverage.symbols
+    assert "rextio_networkx.bfs_edges" in coverage.symbols
+    assert "rextio_networkx.dijkstra_path_lengths" in coverage.symbols
 
 
 def test_rule_records_are_namespaced_and_well_formed() -> None:
@@ -91,8 +95,14 @@ def test_rejection_code_is_declared_by_a_rule_record() -> None:
 def test_type_vocabulary_keys_and_annotations() -> None:
     types = plugin().type_vocabulary()
     assert {t.key for t in types} == {
+        "rextio-networkx/node-i64",
         "rextio-networkx/edgelist-i64",
+        "rextio-networkx/weighted-edgelist-i64-f64",
         "rextio-networkx/component-list",
+        "rextio-networkx/bfs-edges-i64",
+        "rextio-networkx/dijkstra-lengths-i64",
+        "rextio-networkx/graph-i64",
+        "rextio-networkx/weighted-graph-i64-f64",
     }
     spellings: set[str] = set()
     for plugin_type in types:
@@ -101,9 +111,39 @@ def test_type_vocabulary_keys_and_annotations() -> None:
         assert plugin_type.annotations
         spellings.update(plugin_type.annotations)
     assert spellings == {
+        "rextio_networkx.NodeI64",
         "rextio_networkx.EdgeListI64",
+        "rextio_networkx.WeightedEdgeListI64F64",
         "rextio_networkx.ComponentList",
+        "rextio_networkx.BfsEdgesI64",
+        "rextio_networkx.DijkstraLengthsI64",
+        "rextio_networkx.GraphI64",
+        "rextio_networkx.WeightedGraphI64F64",
     }
+
+
+def test_only_graph_types_are_resident_and_raw_inputs_receive_pyany() -> None:
+    types = {plugin_type.key: plugin_type for plugin_type in plugin().type_vocabulary()}
+    assert {key for key, value in types.items() if value.is_resident} == {
+        "rextio-networkx/graph-i64",
+        "rextio-networkx/weighted-graph-i64-f64",
+    }
+    for key in (
+        "rextio-networkx/node-i64",
+        "rextio-networkx/edgelist-i64",
+        "rextio-networkx/weighted-edgelist-i64-f64",
+    ):
+        conversion = types[key].conversion
+        assert conversion is not None
+        assert conversion.param_rust == "pyo3::Bound<'py, pyo3::types::PyAny>"
+
+
+def test_private_dependency_pins_exact_api_13_core_commit() -> None:
+    pyproject = tomllib.loads((Path(__file__).parents[1] / "pyproject.toml").read_text())
+    dependencies = pyproject["project"]["dependencies"]
+    core = next(item for item in dependencies if item.startswith("rextio @ "))
+    assert core.endswith("@ac2b79d304f13abaaecaf7714f897574c3b6256f")
+    assert "rextio>=0.1.2" not in core
 
 
 def test_crate_dependency_is_exact_petgraph_pin() -> None:
@@ -114,8 +154,14 @@ def test_crate_dependency_is_exact_petgraph_pin() -> None:
 def test_registry_binds_types_and_crates() -> None:
     reg = _registry()
     assert {b.plugin_type.key for b in reg.types} == {
+        "rextio-networkx/node-i64",
         "rextio-networkx/edgelist-i64",
+        "rextio-networkx/weighted-edgelist-i64-f64",
         "rextio-networkx/component-list",
+        "rextio-networkx/bfs-edges-i64",
+        "rextio-networkx/dijkstra-lengths-i64",
+        "rextio-networkx/graph-i64",
+        "rextio-networkx/weighted-graph-i64-f64",
     }
     assert [(b.dependency.name, b.dependency.version) for b in reg.crate_dependencies] == [
         ("petgraph", "=0.6.5")

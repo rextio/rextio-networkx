@@ -9,7 +9,33 @@ components, insertion order).
 
 from __future__ import annotations
 
+import subprocess
+import sys
+from pathlib import Path
+
 import pytest
+
+CORE_ROOT = Path("/Volumes/Data/workspace/rextio/rextio-core-next").resolve()
+CORE_SRC = CORE_ROOT / "src"
+CORE_SHA = "ac2b79d304f13abaaecaf7714f897574c3b6256f"
+
+# Collection must use the frozen source checkout, never a released/global core.
+sys.path.insert(0, str(CORE_SRC))
+import rextio  # noqa: E402
+from rextio.plugins.api import PLUGIN_API_VERSION  # noqa: E402
+
+_actual_sha = subprocess.run(
+    ["rtk", "git", "-C", str(CORE_ROOT), "rev-parse", "HEAD"],
+    capture_output=True,
+    text=True,
+    check=True,
+).stdout.strip()
+if _actual_sha != CORE_SHA:
+    raise RuntimeError(f"WP-2 requires core {CORE_SHA}, found {_actual_sha}")
+if PLUGIN_API_VERSION != "1.3":
+    raise RuntimeError(f"WP-2 requires plugin API 1.3, found {PLUGIN_API_VERSION}")
+if not Path(rextio.__file__).resolve().is_relative_to(CORE_SRC):
+    raise RuntimeError(f"WP-2 imported core outside frozen checkout: {rextio.__file__}")
 
 # Each case names one covered semantic. Every case is an undirected simple-graph
 # edge list of signed i64 node labels; expected components are compared against
