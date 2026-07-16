@@ -28,9 +28,7 @@ from typing import Any
 
 from cases import BenchmarkCase, benchmark_cases
 
-CORE_ROOT = Path("/Volumes/Data/workspace/rextio/rextio-core-next").resolve()
-CORE_SRC = CORE_ROOT / "src"
-CORE_SHA = "2bd1d1da0cf59e97d1659606bcb1ec12491e032c"
+_CORE_ROOT_ENV = "REXTIO_CORE_ROOT"
 REPO_ROOT = Path(__file__).resolve().parents[1]
 PLUGIN_SRC = REPO_ROOT / "src"
 FIXTURE_MODULE = "nx_bench_app.kernels"
@@ -71,25 +69,43 @@ def _run_text(command: list[str]) -> str:
     return subprocess.run(command, capture_output=True, text=True, check=True).stdout.strip()
 
 
+def _optional_core_root() -> Path | None:
+    """Resolve an optional local core checkout for development overrides."""
+    raw = os.environ.get(_CORE_ROOT_ENV)
+    if not raw:
+        return None
+    core_root = Path(raw).expanduser().resolve()
+    core_src = core_root / "src"
+    if not core_src.is_dir():
+        raise RuntimeError(f"{_CORE_ROOT_ENV}={core_root} does not contain a src/ directory")
+    return core_root
+
+
 def _baseline() -> dict[str, object]:
-    sys.path.insert(0, str(CORE_SRC))
+    # Default: installed rextio dependency. Optional REXTIO_CORE_ROOT prepends a
+    # local core src tree for development against unreleased cores.
+    core_root = _optional_core_root()
+    if core_root is not None:
+        sys.path.insert(0, str(core_root / "src"))
     import networkx
     import rextio
     import rextio_networkx
     from rextio.plugins.api import PLUGIN_API_VERSION
 
-    core_sha = _run_text(["git", "-C", str(CORE_ROOT), "rev-parse", "HEAD"])
-    if core_sha != CORE_SHA:
-        raise RuntimeError(f"benchmark requires core {CORE_SHA}, found {core_sha}")
     if PLUGIN_API_VERSION != "1.3":
         raise RuntimeError(f"benchmark requires plugin API 1.3, found {PLUGIN_API_VERSION}")
     rextio_file = Path(rextio.__file__).resolve()
-    if not rextio_file.is_relative_to(CORE_SRC):
-        raise RuntimeError(f"benchmark imported non-frozen core: {rextio_file}")
+    if core_root is not None and not rextio_file.is_relative_to(core_root / "src"):
+        raise RuntimeError(f"{_CORE_ROOT_ENV} is set but rextio imported from {rextio_file}")
+    core_sha: str | None = None
+    if core_root is not None and (core_root / ".git").exists():
+        core_sha = _run_text(["git", "-C", str(core_root), "rev-parse", "HEAD"])
     return {
+        "rextio_version": getattr(rextio, "__version__", "unknown"),
         "core_sha": core_sha,
         "plugin_api": PLUGIN_API_VERSION,
         "rextio_file": str(rextio_file),
+        "rextio_core_root": str(core_root) if core_root is not None else None,
         "plugin_commit": _run_text(["git", "-C", str(REPO_ROOT), "rev-parse", "HEAD"]),
         "benchmark_harness_sha256": hashlib.sha256(Path(__file__).read_bytes()).hexdigest(),
         "benchmark_cases_sha256": hashlib.sha256(
@@ -188,7 +204,16 @@ class ModeWorker:
     def __init__(self, mode: str, build_python: Path) -> None:
         env = os.environ.copy()
         env["PYTHONHASHSEED"] = "0"
-        env["PYTHONPATH"] = os.pathsep.join((str(CORE_SRC), str(PLUGIN_SRC)))
+        # Prefer the installed rextio package; optionally prepend a local core
+        # checkout when REXTIO_CORE_ROOT is set for development.
+        path_parts = [str(PLUGIN_SRC)]
+        core_root = _optional_core_root()
+        if core_root is not None:
+            path_parts.insert(0, str(core_root / "src"))
+        existing = env.get("PYTHONPATH")
+        if existing:
+            path_parts.append(existing)
+        env["PYTHONPATH"] = os.pathsep.join(path_parts)
         self.process = subprocess.Popen(
             [
                 sys.executable,
@@ -358,6 +383,33 @@ def _break_even(cells: list[dict[str, object]]) -> dict[str, object]:
     return results
 
 
+def _format_core_provenance_line(provenance: dict[str, object]) -> str:
+    """Render a truthful Markdown line for core/package provenance.
+
+    Installed public rextio records ``core_sha=None`` plus package version and
+    import path. A ``REXTIO_CORE_ROOT`` checkout records the frozen core SHA
+    (when the checkout has ``.git``) and the override root/source path.
+    """
+    plugin_api = provenance["plugin_api"]
+    core_sha = provenance.get("core_sha")
+    core_root = provenance.get("rextio_core_root")
+    rextio_file = provenance.get("rextio_file", "unknown")
+    rextio_version = provenance.get("rextio_version", "unknown")
+
+    if core_root is not None:
+        if core_sha is not None:
+            return (
+                f"- Frozen core: `{core_sha}` from `{core_root}` "
+                f"(source `{rextio_file}`) / API `{plugin_api}`"
+            )
+        return (
+            f"- Core checkout: `{core_root}` "
+            f"(source `{rextio_file}`, package `{rextio_version}`) / API `{plugin_api}`"
+        )
+
+    return f"- Installed rextio: `{rextio_version}` at `{rextio_file}` / API `{plugin_api}`"
+
+
 def _write_markdown(path: Path, result: dict[str, object]) -> None:
     cells: list[dict[str, Any]] = result["cells"]  # type: ignore[assignment]
     native_warmups = [int(cell["warmups"]["native"]["elapsed_ns"]) for cell in cells]
@@ -372,6 +424,7 @@ def _write_markdown(path: Path, result: dict[str, object]) -> None:
         for cell in cells
         if cell["valid"] and float(cell["median_speedup_fallback_over_native"]) < 1.0
     ]
+    provenance: dict[str, object] = result["provenance"]  # type: ignore[assignment]
     lines = [
         "# Rextio NetworkX product-route benchmark",
         "",
@@ -380,8 +433,8 @@ def _write_markdown(path: Path, result: dict[str, object]) -> None:
         "",
         "## Run summary",
         "",
-        f"- Frozen core: `{result['provenance']['core_sha']}` / API `{result['provenance']['plugin_api']}`",  # type: ignore[index]
-        f"- Product commit: `{result['provenance']['plugin_commit']}`",  # type: ignore[index]
+        _format_core_provenance_line(provenance),
+        f"- Product commit: `{provenance['plugin_commit']}`",
         f"- One-time build: {float(result['method']['build_ns']) / 1e9:.3f} s",  # type: ignore[index]
         f"- First-call warm-up range: native {min(native_warmups) / 1e6:.3f}–{max(native_warmups) / 1e6:.3f} ms; fallback {min(fallback_warmups) / 1e6:.3f}–{max(fallback_warmups) / 1e6:.3f} ms",
         f"- Retained sample minimum: {retained_min_ns / 1e6:.3f} ms; timer floor: {result['method']['timer_floor_ns']} ns",  # type: ignore[index]

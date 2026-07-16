@@ -1,4 +1,4 @@
-"""Exact NetworkX 3.5 adapters for the rextio-networkx incubator.
+"""Exact NetworkX 3.5 adapters for rextio-networkx (public alpha).
 
 The public Python functions are the forced-fallback half of the contract.  The
 plugin lowers the same calls to generated Rust.  Validation is deliberately

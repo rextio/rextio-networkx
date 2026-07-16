@@ -1,15 +1,13 @@
 # rextio-networkx
 
-A **private incubator** Rextio plugin for exact, deliberately narrow NetworkX
-3.5 routes on real `petgraph::UnGraph` resident values.
+A **public alpha** Rextio plugin for exact, deliberately narrow NetworkX 3.5
+routes on real `petgraph::UnGraph` resident values.
 
-This branch requires unreleased Rextio plugin API **1.3** at exact integrated
-core commit `2bd1d1da0cf59e97d1659606bcb1ec12491e032c`. Released
-`rextio==0.1.2` implements API 1.2 and is not compatible. The package metadata
-therefore pins the core-next Git commit rather than a released version range;
-publication waits for a core release that actually denotes API 1.3. This package
-is marked `Private :: Do Not Upload` and must not be published while the
-repository remains a private pre-release incubator.
+Requires **Rextio** `>=0.1.3,<0.2` (plugin API **1.3**). Install from PyPI as
+`rextio-networkx`. Repository: [rextio/rextio-networkx](https://github.com/rextio/rextio-networkx).
+
+This is an honest alpha: only the typed adapter routes below are claimed for
+native lowering. Everything outside that surface remains Python fallback.
 
 ## Product routes
 
@@ -83,8 +81,8 @@ nx.single_source_dijkstra_path_length(G, source, weight="weight")
   graph.")`. Missing Dijkstra source raises
   `networkx.NodeNotFound("Node X not found in graph")`.
 
-The WP-1 typed `connected_components_from_edgelist` route remains available
-and now shares the strict raw edge parser and ordered petgraph constructor.
+The typed `connected_components_from_edgelist` route remains available and
+shares the strict raw edge parser and ordered petgraph constructor.
 
 API 1.3 type-level support is explicit and granular. `NodeI64`, both edge-list
 types, and both resident graph types own the exact Rust helpers referenced by
@@ -118,6 +116,10 @@ A recognized traversal target with wrong arity, keywords/options, a plain core
 plugin annotation is rejected statically as `RXTP-NETWORKX-020`. Directed and
 multigraph inputs, object/mixed labels, target/depth/cutoff/weight options, and
 raw NetworkX spellings are outside this surface and remain fallback-only.
+
+Raw NetworkX APIs such as `networkx.from_edgelist` and
+`networkx.connected_components` are **not** lowerable symbols. Use the typed
+`rextio_networkx` adapters when you need a native route.
 
 ## Benchmark evidence
 
@@ -153,18 +155,28 @@ suppressing it, and never labels a standalone PyO3 row as product speedup.
 
 ```bash
 uv venv --python 3.11 .venv
-uv pip install --python .venv/bin/python -e ../rextio-core-next
-uv pip install --python .venv/bin/python --no-deps -e .
-uv pip install --python .venv/bin/python \
-  'networkx==3.5' pytest hypothesis ruff mypy build twine check-wheel-contents
+uv pip install --python .venv/bin/python 'rextio>=0.1.3,<0.2'
+uv pip install --python .venv/bin/python -e ".[dev]"
 
 .venv/bin/python -m pytest
 .venv/bin/ruff check src tests benchmarks
 .venv/bin/ruff format --check src tests benchmarks
 .venv/bin/mypy src
 .venv/bin/python -m build
+.venv/bin/twine check dist/*
+.venv/bin/check-wheel-contents dist/*.whl
 ```
 
-Test collection, real-Cargo fixtures, and benchmark startup verify the exact
-core HEAD, API version, and `rextio.__file__` under the core-next source
-checkout so a globally installed released core cannot satisfy the gates.
+By default, tests and benchmarks import the **installed** `rextio` package.
+To point them at a local core checkout instead (optional development override):
+
+```bash
+export REXTIO_CORE_ROOT=/path/to/rextio   # directory that contains src/rextio
+uv pip install --python .venv/bin/python --no-deps -e "$REXTIO_CORE_ROOT"
+.venv/bin/python -m pytest
+```
+
+Collection and real-Cargo fixtures require plugin API 1.3 from that installed
+(or overridden) core. Historical benchmark provenance files may still record
+the original machine-local core path from the measured run; the harness no
+longer hardcodes it.

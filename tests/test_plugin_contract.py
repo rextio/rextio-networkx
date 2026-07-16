@@ -62,6 +62,20 @@ def test_covers_declares_networkx_and_adapter() -> None:
     assert "rextio_networkx.dijkstra_path_lengths" in coverage.symbols
 
 
+def test_coverage_symbols_are_only_lowerable_adapters() -> None:
+    """Raw NetworkX spellings must not be advertised as directly lowerable."""
+    coverage = plugin().covers()
+    assert "networkx.from_edgelist" not in coverage.symbols
+    assert "networkx.connected_components" not in coverage.symbols
+    assert set(coverage.symbols) == {
+        "rextio_networkx.connected_components_from_edgelist",
+        "rextio_networkx.graph_from_edgelist",
+        "rextio_networkx.bfs_edges",
+        "rextio_networkx.weighted_graph_from_edgelist",
+        "rextio_networkx.dijkstra_path_lengths",
+    }
+
+
 def test_rule_records_are_namespaced_and_well_formed() -> None:
     records = plugin().describe(None)
     assert records, "expected at least one rule record"
@@ -138,18 +152,20 @@ def test_only_graph_types_are_resident_and_raw_inputs_receive_pyany() -> None:
         assert conversion.param_rust == "pyo3::Bound<'py, pyo3::types::PyAny>"
 
 
-def test_private_dependency_pins_exact_api_13_core_commit() -> None:
+def test_public_dependency_requires_released_api_13_core() -> None:
     pyproject = tomllib.loads((Path(__file__).parents[1] / "pyproject.toml").read_text())
     dependencies = pyproject["project"]["dependencies"]
-    core = next(item for item in dependencies if item.startswith("rextio @ "))
-    assert core.endswith("@2bd1d1da0cf59e97d1659606bcb1ec12491e032c")
-    assert "rextio>=0.1.2" not in core
+    core = next(item for item in dependencies if item.startswith("rextio"))
+    assert core == "rextio>=0.1.3,<0.2"
+    assert "git+" not in core
+    assert "rextio-core-next" not in core
 
 
-def test_private_do_not_upload_classifier_is_present() -> None:
-    """Block accidental PyPI publication while this remains a private incubator."""
+def test_private_do_not_upload_classifier_is_absent() -> None:
+    """Public alpha is intended for PyPI; do not block upload with this classifier."""
     pyproject = tomllib.loads((Path(__file__).parents[1] / "pyproject.toml").read_text())
-    assert "Private :: Do Not Upload" in pyproject["project"]["classifiers"]
+    assert "Private :: Do Not Upload" not in pyproject["project"]["classifiers"]
+    assert pyproject["project"]["name"] == "rextio-networkx"
 
 
 def test_crate_dependency_is_exact_petgraph_pin() -> None:

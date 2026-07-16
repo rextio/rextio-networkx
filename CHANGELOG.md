@@ -3,20 +3,23 @@
 All notable changes to `rextio-networkx` are documented here following Keep a
 Changelog and Semantic Versioning conventions.
 
-## [Unreleased]
+## [0.1.0] - 2026-07-17
+
+First public alpha release of `rextio-networkx` on PyPI. The supported surface
+remains deliberately narrow: only the typed adapter routes listed below are
+claimed for native lowering. Raw NetworkX spellings stay fallback-only.
 
 ### Added
 
-- `Private :: Do Not Upload` package classifier so accidental PyPI publication is
-  blocked while this repository remains a private pre-release incubator.
-- Private-incubator plugin API 1.3 vocabulary: raw materialized `NodeI64`,
-  `EdgeListI64`, `WeightedEdgeListI64F64`, `BfsEdgesI64`, and
-  `DijkstraLengthsI64`, plus distinct opaque resident `GraphI64` and
-  `WeightedGraphI64F64` types.
+- Plugin API 1.3 vocabulary: raw materialized `NodeI64`, `EdgeListI64`,
+  `WeightedEdgeListI64F64`, `BfsEdgesI64`, and `DijkstraLengthsI64`, plus
+  distinct opaque resident `GraphI64` and `WeightedGraphI64F64` types.
 - Generated constructor/consumer chains for exact NetworkX 3.5 BFS and
   single-source Dijkstra path lengths. Resident structures own real
   `petgraph::UnGraph` values and explicit stable node/edge/adjacency sidecars;
   consumers borrow resident operands and only final Python results materialize.
+- Typed connected-components adapter `connected_components_from_edgelist` that
+  shares the exact raw parser and ordered petgraph constructor.
 - NetworkX insertion-order compatibility: first-node and first-adjacency order,
   duplicate/reversed-duplicate stability, self-loop-once neighbor order, and
   last-weighted-duplicate-wins graph mutation.
@@ -50,31 +53,44 @@ Changelog and Semantic Versioning conventions.
   including exact ordered serializers for `EdgeListI64` and
   `WeightedEdgeListI64F64` returns, resident-signature definitions, exact-text
   signature/claim deduplication, and unused-type non-emission regressions.
-- Real-Cargo regressions (collected for the serialized verification phase) for
-  claimless `NodeI64`, unweighted edge-list, and weighted edge-list round trips,
-  including signed-i64 bounds and observable `-0.0` preservation.
+- Real-Cargo regressions for claimless `NodeI64`, unweighted edge-list, and
+  weighted edge-list round trips, including signed-i64 bounds and observable
+  `-0.0` preservation.
 
 ### Changed
 
-- The provider now advertises plugin API 1.3. Package metadata pins exact
-  integrated core-next commit `2bd1d1da0cf59e97d1659606bcb1ec12491e032c`;
-  it cannot select
-  released API-1.2 core `rextio==0.1.2`. Public packaging waits for an API-1.3
-  core release.
-- The retained connected-components route shares the new exact raw parser and
-  resident-compatible ordered petgraph constructor.
-- Test collection, E2E setup, and benchmark startup verify core HEAD, plugin API
-  and `rextio.__file__` under the frozen source checkout.
-- Replace the stale benchmark artifacts with an authoritative 56-cell run from
-  product commit `242d17828e96e3a2ff1914cd40324c8b7128d981` against integrated
-  core `2bd1d1da0cf59e97d1659606bcb1ec12491e032c` / API 1.3. All three product
+- Public packaging targets released `rextio>=0.1.3,<0.2` (plugin API 1.3)
+  instead of a private exact VCS pin to `rextio-core-next`.
+- `CoverageDecl.symbols` lists only directly lowerable adapter symbols. Raw
+  NetworkX spellings such as `networkx.from_edgelist` and
+  `networkx.connected_components` are not advertised as lowerable; they remain
+  fallback-only (RXTP-NETWORKX-019).
+- Tests, E2E fixtures, and the benchmark harness use the installed `rextio`
+  dependency by default. An optional `REXTIO_CORE_ROOT` environment variable
+  may point at a local core checkout for development overrides.
+- Authoritative benchmark artifacts remain the 56-cell run from product commit
+  `242d17828e96e3a2ff1914cd40324c8b7128d981` against integrated core
+  `2bd1d1da0cf59e97d1659606bcb1ec12491e032c` / API 1.3. All three product
   routes and order/type-sensitive digests passed; the one-time build was
   6.640 s, first-call warm-up was 0.011–0.607 ms native and 0.027–120.733 ms
   fallback, and every retained sample cleared 19.271 ms against a 41 ns timer
   floor.
+
+### Removed
+
+- `Private :: Do Not Upload` package classifier (this release is intended for
+  public PyPI publication as an alpha).
 
 ### Security
 
 - Bool/int-subclass coercion, out-of-i64 extraction, tuple indexing before arity
   validation, and invalid overwritten weighted duplicates now fail closed with
   stable documented Python exceptions in both execution modes.
+
+## [Unreleased]
+
+### Added
+
+### Changed
+
+### Security

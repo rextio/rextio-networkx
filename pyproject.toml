@@ -5,7 +5,7 @@ build-backend = "setuptools.build_meta"
 [project]
 name = "rextio-networkx"
 dynamic = ["version"]
-description = "Private-incubator Rextio plugin for exact ordered NetworkX traversal on resident petgraph graphs (plugin API 1.3)."
+description = "Rextio plugin for exact ordered NetworkX traversal on resident petgraph graphs (plugin API 1.3)."
 readme = "README.md"
 requires-python = ">=3.11"
 license = "MIT"
@@ -16,17 +16,14 @@ authors = [
 keywords = ["rextio", "networkx", "petgraph", "rust", "compiler", "plugin"]
 classifiers = [
   "Development Status :: 3 - Alpha",
-  "Private :: Do Not Upload",
   "Intended Audience :: Developers",
   "Programming Language :: Python :: 3",
   "Programming Language :: Python :: 3 :: Only",
   "Topic :: Software Development :: Build Tools",
 ]
-# No released Rextio version denotes plugin API 1.3 yet.  This private
-# incubator therefore pins the exact integrated source commit rather than a
-# version range that could silently resolve to released API 1.2.
+# Public alpha requires a released Rextio core that denotes plugin API 1.3.
 dependencies = [
-  "rextio @ git+https://github.com/rextio/rextio-core-next.git@2bd1d1da0cf59e97d1659606bcb1ec12491e032c",
+  "rextio>=0.1.3,<0.2",
   "networkx==3.5",
 ]
 
@@ -34,6 +31,7 @@ dependencies = [
 Homepage = "https://github.com/rextio/rextio-networkx"
 Repository = "https://github.com/rextio/rextio-networkx"
 Issues = "https://github.com/rextio/rextio-networkx/issues"
+Changelog = "https://github.com/rextio/rextio-networkx/blob/main/CHANGELOG.md"
 
 [project.entry-points."rextio.plugins"]
 rextio-networkx = "rextio_networkx.plugin:plugin"
@@ -51,6 +49,9 @@ dev = [
   "hypothesis>=6.0",
   "ruff>=0.15",
   "mypy>=1.11",
+  "build>=1.2",
+  "twine>=5.0",
+  "check-wheel-contents>=0.6",
 ]
 
 [tool.setuptools.dynamic]
@@ -80,6 +81,7 @@ convention = "pep257"
 
 [tool.ruff.lint.per-file-ignores]
 "tests/**" = ["D"]
+"benchmarks/**" = ["D"]
 
 [tool.mypy]
 python_version = "3.11"

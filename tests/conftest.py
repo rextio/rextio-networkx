@@ -5,37 +5,48 @@ import ``rextio_networkx`` directly. This module exposes the covered-semantics
 sample edge lists once, so the unit tests and the real-Cargo certification test
 exercise the same cases (empty, duplicates/self-loop, negative labels, multiple
 components, insertion order).
+
+By default, tests use the installed ``rextio`` dependency (``rextio>=0.1.3,<0.2``,
+plugin API 1.3). Set ``REXTIO_CORE_ROOT`` to a local core checkout only when
+developing against an unreleased core tree.
 """
 
 from __future__ import annotations
 
-import subprocess
+import os
 import sys
 from pathlib import Path
 
 import pytest
 
-CORE_ROOT = Path("/Volumes/Data/workspace/rextio/rextio-core-next").resolve()
-CORE_SRC = CORE_ROOT / "src"
-CORE_SHA = "2bd1d1da0cf59e97d1659606bcb1ec12491e032c"
+_CORE_ROOT_ENV = "REXTIO_CORE_ROOT"
 
-# Collection must use the frozen source checkout, never a released/global core.
-sys.path.insert(0, str(CORE_SRC))
+
+def _maybe_prepend_core_src() -> Path | None:
+    """Optionally put a local core ``src`` on ``sys.path`` before importing rextio."""
+    raw = os.environ.get(_CORE_ROOT_ENV)
+    if not raw:
+        return None
+    core_root = Path(raw).expanduser().resolve()
+    core_src = core_root / "src"
+    if not core_src.is_dir():
+        raise RuntimeError(f"{_CORE_ROOT_ENV}={core_root} does not contain a src/ directory")
+    sys.path.insert(0, str(core_src))
+    return core_root
+
+
+_optional_core_root = _maybe_prepend_core_src()
+
 import rextio  # noqa: E402
 from rextio.plugins.api import PLUGIN_API_VERSION  # noqa: E402
 
-_actual_sha = subprocess.run(
-    ["git", "-C", str(CORE_ROOT), "rev-parse", "HEAD"],
-    capture_output=True,
-    text=True,
-    check=True,
-).stdout.strip()
-if _actual_sha != CORE_SHA:
-    raise RuntimeError(f"WP-2 requires core {CORE_SHA}, found {_actual_sha}")
 if PLUGIN_API_VERSION != "1.3":
-    raise RuntimeError(f"WP-2 requires plugin API 1.3, found {PLUGIN_API_VERSION}")
-if not Path(rextio.__file__).resolve().is_relative_to(CORE_SRC):
-    raise RuntimeError(f"WP-2 imported core outside frozen checkout: {rextio.__file__}")
+    raise RuntimeError(f"rextio-networkx requires plugin API 1.3, found {PLUGIN_API_VERSION}")
+
+if _optional_core_root is not None:
+    rextio_file = Path(rextio.__file__).resolve()
+    if not rextio_file.is_relative_to(_optional_core_root / "src"):
+        raise RuntimeError(f"{_CORE_ROOT_ENV} is set but rextio imported from {rextio_file}")
 
 # Each case names one covered semantic. Every case is an undirected simple-graph
 # edge list of signed i64 node labels; expected components are compared against
