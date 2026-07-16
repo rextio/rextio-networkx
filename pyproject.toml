@@ -16,6 +16,7 @@ authors = [
 keywords = ["rextio", "networkx", "petgraph", "rust", "compiler", "plugin"]
 classifiers = [
   "Development Status :: 3 - Alpha",
+  "Private :: Do Not Upload",
   "Intended Audience :: Developers",
   "Programming Language :: Python :: 3",
   "Programming Language :: Python :: 3 :: Only",

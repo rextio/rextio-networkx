@@ -7,6 +7,8 @@ Changelog and Semantic Versioning conventions.
 
 ### Added
 
+- `Private :: Do Not Upload` package classifier so accidental PyPI publication is
+  blocked while this repository remains a private pre-release incubator.
 - Private-incubator plugin API 1.3 vocabulary: raw materialized `NodeI64`,
   `EdgeListI64`, `WeightedEdgeListI64F64`, `BfsEdgesI64`, and
   `DijkstraLengthsI64`, plus distinct opaque resident `GraphI64` and
