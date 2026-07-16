@@ -1,10 +1,10 @@
 # Product-route benchmarks
 
 `bench_product_routes.py` measures the generated Rextio wrapper, not a
-standalone Rust/PyO3 prototype. It builds a fixture against frozen core commit
-`2bd1d1da0cf59e97d1659606bcb1ec12491e032c` (plugin API 1.3), verifies
-`check.json` route `native-plugin:rextio-networkx`, then starts two persistent
-wrapper processes:
+standalone Rust/PyO3 prototype. It builds a fixture against the installed
+`rextio` dependency (plugin API 1.3; optional `REXTIO_CORE_ROOT` override for a
+local core checkout), verifies `check.json` route `native-plugin:rextio-networkx`,
+then starts two persistent wrapper processes:
 
 - `REXTIO_NATIVE_MODE=native`
 - `REXTIO_NATIVE_MODE=fallback`

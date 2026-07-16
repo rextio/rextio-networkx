@@ -113,6 +113,10 @@ def test_claim_other_target_is_not_covered() -> None:
     assert isinstance(
         claim(_site([EDGELIST_I64], target="networkx.from_edgelist"), None), NotCovered
     )
+    assert isinstance(
+        claim(_site([EDGELIST_I64], target="networkx.connected_components"), None),
+        NotCovered,
+    )
 
 
 def test_claim_binop_site_is_not_covered() -> None:

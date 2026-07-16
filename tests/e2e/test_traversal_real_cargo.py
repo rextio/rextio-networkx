@@ -6,7 +6,6 @@ import hashlib
 import importlib.util
 import json
 import shutil
-import subprocess
 from copy import deepcopy
 from pathlib import Path
 from types import ModuleType
@@ -24,9 +23,6 @@ from rextio.plugins.api import PLUGIN_API_VERSION
 from rextio.plugins.testing import CertifiedProject, EquivalenceChecker, build_certification_project
 from rextio_networkx.diagnostics import EDGELIST_I64, NODE_I64, WEIGHTED_EDGELIST_I64_F64
 from rextio_networkx.plugin_types import plugin_type
-
-CORE_ROOT = Path("/Volumes/Data/workspace/rextio/rextio-core-next").resolve()
-CORE_SHA = "2bd1d1da0cf59e97d1659606bcb1ec12491e032c"
 
 pytestmark = [
     pytest.mark.needs_cargo,
@@ -81,20 +77,15 @@ def resident_to_materialized(edges: EdgeListI64) -> ComponentList:
 """
 
 
-def _core_sha() -> str:
-    return subprocess.run(
-        ["git", "-C", str(CORE_ROOT), "rev-parse", "HEAD"],
-        capture_output=True,
-        text=True,
-        check=True,
-    ).stdout.strip()
+def _rextio_version() -> str:
+    return getattr(rextio, "__version__", "unknown")
 
 
 @pytest.fixture(scope="module")
 def project(tmp_path_factory: pytest.TempPathFactory) -> CertifiedProject:
-    assert _core_sha() == CORE_SHA
+    # Use the installed rextio dependency (optional REXTIO_CORE_ROOT override in
+    # conftest). Require plugin API 1.3; do not hardcode a machine-local path.
     assert PLUGIN_API_VERSION == "1.3"
-    assert Path(rextio.__file__).resolve().is_relative_to(CORE_ROOT / "src")
 
     root = tmp_path_factory.mktemp("nx_traversal")
     (root / "rextio.toml").write_text(
@@ -108,7 +99,7 @@ def project(tmp_path_factory: pytest.TempPathFactory) -> CertifiedProject:
     built = build_certification_project(root)
     check_path = root / ".rextio" / "reports" / "check.json"
     provenance = {
-        "core_sha": CORE_SHA,
+        "rextio_version": _rextio_version(),
         "plugin_api": PLUGIN_API_VERSION,
         "rextio_file": str(Path(rextio.__file__).resolve()),
         "check_json_sha256": hashlib.sha256(check_path.read_bytes()).hexdigest(),
@@ -467,9 +458,10 @@ def test_build_records_exact_core_and_petgraph_provenance(project: CertifiedProj
             encoding="utf-8"
         )
     )
-    assert provenance["core_sha"] == CORE_SHA
     assert provenance["plugin_api"] == "1.3"
-    assert Path(provenance["rextio_file"]).is_relative_to(CORE_ROOT / "src")
+    assert provenance["rextio_version"] == _rextio_version()
+    assert Path(provenance["rextio_file"]).resolve() == Path(rextio.__file__).resolve()
+    assert Path(provenance["rextio_file"]).is_file()
     build = json.loads(
         (project.project_root / ".rextio" / "reports" / "build.json").read_text(encoding="utf-8")
     )

@@ -1,4 +1,4 @@
-"""Rule records for the API-1.3 NetworkX incubator surface."""
+"""Rule records for the API-1.3 NetworkX public alpha surface."""
 
 from __future__ import annotations
 

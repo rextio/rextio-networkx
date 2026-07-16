@@ -1,9 +1,9 @@
 """The rextio-networkx plugin object and entry-point factory.
 
-Implements private-incubator plugin API 1.3, including resident petgraph values
-that chain from typed constructors into BFS/Dijkstra without a Python graph
-round trip.  The module itself never imports NetworkX; fallback adapters do so
-lazily when called.
+Implements plugin API 1.3, including resident petgraph values that chain from
+typed constructors into BFS/Dijkstra without a Python graph round trip.  The
+module itself never imports NetworkX; fallback adapters do so lazily when
+called.
 
 Claim and lower logic live in :mod:`rextio_networkx.claim` and
 :mod:`rextio_networkx.lower`; this module is a thin facade.
