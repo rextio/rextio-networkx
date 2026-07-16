@@ -146,6 +146,12 @@ def test_private_dependency_pins_exact_api_13_core_commit() -> None:
     assert "rextio>=0.1.2" not in core
 
 
+def test_private_do_not_upload_classifier_is_present() -> None:
+    """Block accidental PyPI publication while this remains a private incubator."""
+    pyproject = tomllib.loads((Path(__file__).parents[1] / "pyproject.toml").read_text())
+    assert "Private :: Do Not Upload" in pyproject["project"]["classifiers"]
+
+
 def test_crate_dependency_is_exact_petgraph_pin() -> None:
     deps = plugin().crate_dependencies()
     assert deps == (CrateDependency(name="petgraph", version="=0.6.5"),)

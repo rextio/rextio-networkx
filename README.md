@@ -7,7 +7,9 @@ This branch requires unreleased Rextio plugin API **1.3** at exact integrated
 core commit `2bd1d1da0cf59e97d1659606bcb1ec12491e032c`. Released
 `rextio==0.1.2` implements API 1.2 and is not compatible. The package metadata
 therefore pins the core-next Git commit rather than a released version range;
-publication waits for a core release that actually denotes API 1.3.
+publication waits for a core release that actually denotes API 1.3. This package
+is marked `Private :: Do Not Upload` and must not be published while the
+repository remains a private pre-release incubator.
 
 ## Product routes
 
