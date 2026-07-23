@@ -15,6 +15,7 @@ COVERAGE = CoverageDecl(
     modules=("networkx", "rextio_networkx"),
     symbols=(
         "rextio_networkx.connected_components_from_edgelist",
+        "rextio_networkx.connected_components",
         "rextio_networkx.graph_from_edgelist",
         "rextio_networkx.bfs_edges",
         "rextio_networkx.single_source_shortest_path_lengths",

@@ -23,6 +23,10 @@ Changelog and Semantic Versioning conventions.
 - Real-Cargo evidence that one `GraphI64` construction can be shared-borrowed
   by both `has_path` and `single_source_shortest_path_lengths` without cloning,
   graph rematerialization, or a Python boundary round-trip.
+- Typed `connected_components(GraphI64) -> ComponentList` resident consumer.
+  It shares the exact ordered component materializer with the retained
+  `connected_components_from_edgelist` route, borrows the existing graph, and
+  emits the shared Rust helper once when both routes coexist.
 - Focused fallback/claim/lowering and real-Cargo certification coverage for
   diamonds, duplicate and reversed edges, self-loops, disconnected graphs,
   non-contiguous signed-i64 labels, exact missing-source `NodeNotFound`, and

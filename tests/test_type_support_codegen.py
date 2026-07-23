@@ -159,6 +159,7 @@ def test_signature_and_claim_support_deduplicate_by_exact_text() -> None:
     for helper in plugin_type(EDGELIST_I64).helpers:
         assert source.count(helper) == 1
     assert source.count("fn __rxtnx_connected_components_i64") == 1
+    assert source.count("fn __rxtnx_connected_components_graph_i64") == 1
 
 
 def test_registered_but_unused_networkx_types_emit_no_support() -> None:
@@ -190,7 +191,7 @@ def test_node_signature_owns_exact_parser_without_graph_support() -> None:
         BlockIR(statements=[ReturnIR(LiteralIR(1))]),
     )
     source = _source(probe)
-    assert "let source = __rxtnx_parse_source_i64(py, &source, \"source\")?;" in source
+    assert 'let source = __rxtnx_parse_source_i64(py, &source, "source")?;' in source
     assert source.count("fn __rxtnx_parse_exact_i64(") == 1
     assert source.count("fn __rxtnx_parse_source_i64(") == 1
     assert "RxtNxGraphI64" not in source

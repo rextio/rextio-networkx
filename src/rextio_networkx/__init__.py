@@ -100,6 +100,15 @@ def graph_from_edgelist(edges: EdgeListI64) -> GraphI64:
     return graph
 
 
+def connected_components(graph: GraphI64) -> ComponentList:
+    """Return ``list(nx.connected_components(graph))`` for a resident graph."""
+    import networkx as nx
+
+    if type(graph) is not nx.Graph or not graph.graph.get("__rextio_networkx_graph_i64__", False):
+        raise TypeError("rextio-networkx: graph must be produced by graph_from_edgelist")
+    return list(nx.connected_components(graph))
+
+
 def weighted_graph_from_edgelist(edges: WeightedEdgeListI64F64) -> WeightedGraphI64F64:
     """Build the exact weighted fallback graph used by the resident route."""
     import networkx as nx
@@ -196,6 +205,7 @@ __all__ = [
     "WeightedGraphI64F64",
     "__version__",
     "bfs_edges",
+    "connected_components",
     "connected_components_from_edgelist",
     "dijkstra_path_lengths",
     "graph_from_edgelist",

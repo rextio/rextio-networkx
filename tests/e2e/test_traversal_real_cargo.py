@@ -45,6 +45,7 @@ from rextio_networkx import (
     ShortestPathLengthsI64,
     WeightedEdgeListI64F64,
     bfs_edges,
+    connected_components,
     connected_components_from_edgelist,
     dijkstra_path_lengths,
     graph_from_edgelist,
@@ -87,6 +88,10 @@ def shortest_path_length_product(
     target: NodeI64,
 ) -> int:
     return shortest_path_length(graph_from_edgelist(edges), source, target)
+
+
+def resident_components_product(edges: EdgeListI64) -> ComponentList:
+    return connected_components(graph_from_edgelist(edges))
 
 
 def dijkstra_product(
@@ -165,6 +170,7 @@ def test_routes_and_exact_rxt092_gates(project: CertifiedProject) -> None:
         "has_path_product",
         "resident_reuse_product",
         "shortest_path_length_product",
+        "resident_components_product",
         "dijkstra_product",
     ):
         function = functions[f"nx_traversal_app.kernels.{name}"]
@@ -198,12 +204,16 @@ def test_generated_source_owns_petgraph_and_constructs_once(project: CertifiedPr
     shortest_pair_body = _function_body(
         source, "nx_traversal_app__kernels__shortest_path_length_product"
     )
+    resident_components_body = _function_body(
+        source, "nx_traversal_app__kernels__resident_components_product"
+    )
     dijkstra_body = _function_body(source, "nx_traversal_app__kernels__dijkstra_product")
     assert bfs_body.count("__rxtnx_graph_from_edgelist_i64(&edges)") == 1
     assert shortest_body.count("__rxtnx_graph_from_edgelist_i64(&edges)") == 1
     assert has_path_body.count("__rxtnx_graph_from_edgelist_i64(&edges)") == 1
     assert reuse_body.count("__rxtnx_graph_from_edgelist_i64(&edges)") == 1
     assert shortest_pair_body.count("__rxtnx_graph_from_edgelist_i64(&edges)") == 1
+    assert resident_components_body.count("__rxtnx_graph_from_edgelist_i64(&edges)") == 1
     assert dijkstra_body.count("__rxtnx_weighted_graph_from_edgelist_i64_f64(&edges)") == 1
     assert bfs_body.index("__rxtnx_parse_edgelist_i64(py, &edges)") < bfs_body.index(
         '__rxtnx_parse_source_i64(py, &source, "source")'
@@ -219,9 +229,12 @@ def test_generated_source_owns_petgraph_and_constructs_once(project: CertifiedPr
     assert "graph.clone()" not in reuse_body
     assert "__rxtnx_edgelist_i64_to_py" not in reuse_body
     assert "__rxtnx_shortest_path_length_i64(py, &" in shortest_pair_body
+    assert "__rxtnx_connected_components_graph_i64(py, &" in resident_components_body
     assert "__rxtnx_dijkstra_lengths_i64_f64(py, &" in dijkstra_body
     assert source.count("fn __rxtnx_edgelist_i64_to_py") == 1
     assert source.count("fn __rxtnx_weighted_edgelist_i64_f64_to_py") == 1
+    assert source.count("fn __rxtnx_connected_components_i64") == 1
+    assert source.count("fn __rxtnx_connected_components_graph_i64") == 1
     assert "wrap_pyfunction!(nx_traversal_app__kernels__resident_escape" not in source
 
 
@@ -356,6 +369,16 @@ def _shortest_path_lengths_equal(left: object, right: object) -> bool:
 
 def _has_path_equal(left: object, right: object) -> bool:
     return type(left) is bool and type(right) is bool and left is right
+
+
+def _components_equal(left: object, right: object) -> bool:
+    return (
+        type(left) is list
+        and type(right) is list
+        and left == right
+        and all(type(component) is set for component in left)
+        and all(type(component) is set for component in right)
+    )
 
 
 def _dijkstra_signature(result: object) -> list[tuple[type, object, type, str]]:
@@ -517,6 +540,34 @@ def test_native_shortest_path_length_matches_fallback_and_exact_reference(
     expected = nx.shortest_path_length(graph, source, target)
     assert type(actual) is int
     assert actual == expected
+    assert edges == before
+
+
+RESIDENT_COMPONENT_CASES = [
+    [],
+    [(0, 1), (1, 2), (10, 11)],
+    [(4, 1), (1, 4), (4, 4), (20, 21)],
+    [(-(2**63), 7), (2**63 - 1, 2**63 - 1)],
+]
+
+
+@pytest.mark.parametrize("edges", RESIDENT_COMPONENT_CASES)
+def test_native_resident_components_matches_fallback_and_exact_reference(
+    project: CertifiedProject,
+    edges: list[tuple[int, int]],
+) -> None:
+    before = deepcopy(edges)
+    checker = project.equivalence_checker(
+        "nx_traversal_app.kernels.resident_components_product",
+        equals=_components_equal,
+        args_equals=lambda left, right: left == right,
+    )
+    actual = checker(edges)
+    graph = nx.Graph()
+    graph.add_edges_from(edges)
+    expected = list(nx.connected_components(graph))
+    assert actual == expected
+    assert all(type(component) is set for component in actual)
     assert edges == before
 
 

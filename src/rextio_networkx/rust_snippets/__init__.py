@@ -9,7 +9,12 @@ required.
 
 from __future__ import annotations
 
-from rextio_networkx.rust_snippets.components import cc_call_name, cc_helpers
+from rextio_networkx.rust_snippets.components import (
+    cc_call_name,
+    cc_helpers,
+    resident_cc_call_name,
+    resident_cc_helpers,
+)
 from rextio_networkx.rust_snippets.traversal import (
     BFS_EDGES,
     HAS_PATH,
@@ -31,5 +36,7 @@ __all__ = [
     "WEIGHTED_GRAPH_FROM_EDGELIST",
     "cc_call_name",
     "cc_helpers",
+    "resident_cc_call_name",
+    "resident_cc_helpers",
     "traversal_helpers",
 ]

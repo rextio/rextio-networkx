@@ -5,11 +5,23 @@ from __future__ import annotations
 from rextio.plugins.api import ClaimSite, LoweredExpr, LoweringContext
 
 from rextio_networkx import rust_snippets
-from rextio_networkx.claim.components import CC_RULE, CC_TARGET
-from rextio_networkx.diagnostics import COMPONENT_LIST, EDGELIST_I64
+from rextio_networkx.claim.components import (
+    CC_RULE,
+    CC_TARGET,
+    RESIDENT_CC_RULE,
+    RESIDENT_CC_TARGET,
+)
+from rextio_networkx.diagnostics import COMPONENT_LIST, EDGELIST_I64, GRAPH_I64
 
 
-def _require_static_contract(claimed: ClaimSite, ctx: LoweringContext) -> tuple[str, ...]:
+def _require_static_contract(
+    claimed: ClaimSite,
+    ctx: LoweringContext,
+    *,
+    target: str,
+    rule_id: str,
+    operand_types: tuple[str, ...],
+) -> tuple[str, ...]:
     """Reject forged claim metadata before emitting the components helper.
 
     A ``ClaimSite`` originates in core analysis, but plugin lowerers are a
@@ -18,21 +30,23 @@ def _require_static_contract(claimed: ClaimSite, ctx: LoweringContext) -> tuple[
     """
     if (
         claimed.kind != "call"
-        or claimed.target != CC_TARGET
-        or claimed.rule_id != CC_RULE
+        or claimed.target != target
+        or claimed.rule_id != rule_id
         or claimed.result_type != COMPONENT_LIST
-        or claimed.operand_types != (EDGELIST_I64,)
+        or claimed.operand_types != operand_types
         or claimed.keywords
         or claimed.receiver is not None
         or ctx.receiver is not None
     ):
-        raise ValueError("rextio-networkx connected-components lowering contract mismatch")
+        raise ValueError(
+            f"rextio-networkx connected-components lowering contract mismatch for {target!r}"
+        )
 
     operands = tuple(ctx.operands)
     # Explicit ValueError (not assert) so the guard survives python -O and
     # fails closed on malformed LoweringContext metadata rather than emitting
     # bad Rust.
-    if len(operands) != 1:
+    if len(operands) != len(operand_types):
         raise ValueError(
             "rextio-networkx connected-components lowering requires exactly one "
             f"operand, got {len(operands)}"
@@ -42,9 +56,27 @@ def _require_static_contract(claimed: ClaimSite, ctx: LoweringContext) -> tuple[
 
 def try_lower(claimed: ClaimSite, ctx: LoweringContext) -> LoweredExpr | None:
     """Return a lowered expression for the adapter call, or None if not this lane."""
+    if claimed.target == RESIDENT_CC_TARGET:
+        operands = _require_static_contract(
+            claimed,
+            ctx,
+            target=RESIDENT_CC_TARGET,
+            rule_id=RESIDENT_CC_RULE,
+            operand_types=(GRAPH_I64,),
+        )
+        return LoweredExpr(
+            rust=f"{rust_snippets.resident_cc_call_name()}(py, &{operands[0]})?",
+            helpers=rust_snippets.resident_cc_helpers(),
+        )
     if claimed.target != CC_TARGET:
         return None
-    operands = _require_static_contract(claimed, ctx)
+    operands = _require_static_contract(
+        claimed,
+        ctx,
+        target=CC_TARGET,
+        rule_id=CC_RULE,
+        operand_types=(EDGELIST_I64,),
+    )
     name = rust_snippets.cc_call_name()
     helpers = rust_snippets.cc_helpers()
     # The API-1.3 materialized boundary has already converted the raw list to

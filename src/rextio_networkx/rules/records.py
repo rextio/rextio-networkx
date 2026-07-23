@@ -34,6 +34,13 @@ _RULES = (
         "Use the typed EdgeListI64 adapter.",
     ),
     _native(
+        "rextio-networkx/connected-components-resident",
+        "connected_components(GraphI64)",
+        "Borrows one resident unweighted graph and materializes list(nx.connected_components(G)) with exact component and set value semantics.",
+        "RXTP-NETWORKX-009",
+        "Pass a GraphI64 produced by graph_from_edgelist.",
+    ),
+    _native(
         "rextio-networkx/graph-from-edgelist",
         "graph_from_edgelist(EdgeListI64)",
         "Validates an exact raw edge list and builds an opaque resident petgraph UnGraph once, preserving NetworkX node, edge, and adjacency insertion order.",
