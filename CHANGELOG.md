@@ -3,6 +3,26 @@
 All notable changes to `rextio-networkx` are documented here following Keep a
 Changelog and Semantic Versioning conventions.
 
+## [0.1.1] - Unreleased
+
+### Added
+
+- Typed `single_source_shortest_path_lengths(GraphI64, NodeI64) ->
+  ShortestPathLengthsI64` adapter. It lowers only the exact no-option typed
+  spelling and uses the resident unweighted `petgraph::UnGraph` plus ordered
+  adjacency sidecar to match `nx.single_source_shortest_path_length` source-
+  first dictionary insertion and BFS discovery order.
+- Focused fallback/claim/lowering and real-Cargo certification coverage for
+  diamonds, duplicate and reversed edges, self-loops, disconnected graphs,
+  non-contiguous signed-i64 labels, exact missing-source `NodeNotFound`, and
+  input immutability.
+
+### Changed
+
+- Host checks now accept plugin API 1.3 and later 1.x minor versions while the
+  provider itself remains API 1.3 and advertises no artifact capability.
+- CI tests the released Rextio 0.1.3 and 0.1.5 hosts on `main` and `0.1.1`.
+
 ## [0.1.0] - 2026-07-17
 
 First public alpha release of `rextio-networkx` on PyPI. The supported surface

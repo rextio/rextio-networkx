@@ -10,10 +10,13 @@ added without restructuring the package).
 
 from __future__ import annotations
 
+import os
 import subprocess
 import sys
 import tomllib
 from pathlib import Path
+
+import pytest
 
 from rextio.config.schema import PluginConfig
 from rextio.plugins.api import (
@@ -27,6 +30,7 @@ from rextio.plugins.loader import load_plugin_registry
 from rextio.targets.models import TargetSpec
 
 from rextio_networkx.claim.components import CC_RULE
+from rextio_networkx.host_compat import supports_plugin_api
 from rextio_networkx.plugin import PLUGIN_ID, RextioNetworkxPlugin, plugin
 
 
@@ -39,6 +43,17 @@ def test_entry_point_factory_returns_plugin() -> None:
     assert isinstance(obj, RextioNetworkxPlugin)
     assert obj.plugin_id == PLUGIN_ID
     assert obj.api_version == "1.3"
+    assert not hasattr(obj, "artifact_capabilities")
+
+
+@pytest.mark.parametrize("version", ["1.3", "1.4", "1.99"])
+def test_provider_accepts_same_major_hosts_from_api_13(version: str) -> None:
+    assert supports_plugin_api(version)
+
+
+@pytest.mark.parametrize("version", ["1.2", "2.0", "1.3.0", "dev", None])
+def test_provider_rejects_incompatible_or_ambiguous_host_apis(version: object) -> None:
+    assert not supports_plugin_api(version)
 
 
 def test_registry_loads_and_lowering_is_provided() -> None:
@@ -59,6 +74,7 @@ def test_covers_declares_networkx_and_adapter() -> None:
     assert "rextio_networkx" in coverage.packages
     assert "rextio_networkx.connected_components_from_edgelist" in coverage.symbols
     assert "rextio_networkx.bfs_edges" in coverage.symbols
+    assert "rextio_networkx.single_source_shortest_path_lengths" in coverage.symbols
     assert "rextio_networkx.dijkstra_path_lengths" in coverage.symbols
 
 
@@ -71,6 +87,7 @@ def test_coverage_symbols_are_only_lowerable_adapters() -> None:
         "rextio_networkx.connected_components_from_edgelist",
         "rextio_networkx.graph_from_edgelist",
         "rextio_networkx.bfs_edges",
+        "rextio_networkx.single_source_shortest_path_lengths",
         "rextio_networkx.weighted_graph_from_edgelist",
         "rextio_networkx.dijkstra_path_lengths",
     }
@@ -115,6 +132,7 @@ def test_type_vocabulary_keys_and_annotations() -> None:
         "rextio-networkx/component-list",
         "rextio-networkx/bfs-edges-i64",
         "rextio-networkx/dijkstra-lengths-i64",
+        "rextio-networkx/shortest-path-lengths-i64",
         "rextio-networkx/graph-i64",
         "rextio-networkx/weighted-graph-i64-f64",
     }
@@ -131,6 +149,7 @@ def test_type_vocabulary_keys_and_annotations() -> None:
         "rextio_networkx.ComponentList",
         "rextio_networkx.BfsEdgesI64",
         "rextio_networkx.DijkstraLengthsI64",
+        "rextio_networkx.ShortestPathLengthsI64",
         "rextio_networkx.GraphI64",
         "rextio_networkx.WeightedGraphI64F64",
     }
@@ -182,6 +201,7 @@ def test_registry_binds_types_and_crates() -> None:
         "rextio-networkx/component-list",
         "rextio-networkx/bfs-edges-i64",
         "rextio-networkx/dijkstra-lengths-i64",
+        "rextio-networkx/shortest-path-lengths-i64",
         "rextio-networkx/graph-i64",
         "rextio-networkx/weighted-graph-i64-f64",
     }
@@ -214,5 +234,14 @@ def test_lower_guard_survives_optimized_interpreter() -> None:
         capture_output=True,
         text=True,
         check=True,
+        env={
+            **os.environ,
+            "PYTHONPATH": os.pathsep.join(
+                [
+                    str(Path(__file__).parents[1] / "src"),
+                    os.environ.get("PYTHONPATH", ""),
+                ]
+            ),
+        },
     )
     assert "guard-fired" in completed.stdout

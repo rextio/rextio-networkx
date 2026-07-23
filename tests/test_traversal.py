@@ -25,6 +25,8 @@ from rextio_networkx.claim.traversal import (
     DIJKSTRA_TARGET,
     GRAPH_RULE,
     GRAPH_TARGET,
+    SHORTEST_PATH_LENGTHS_RULE,
+    SHORTEST_PATH_LENGTHS_TARGET,
     WEIGHTED_GRAPH_RULE,
     WEIGHTED_GRAPH_TARGET,
 )
@@ -34,6 +36,7 @@ from rextio_networkx.diagnostics import (
     EDGELIST_I64,
     GRAPH_I64,
     NODE_I64,
+    SHORTEST_PATH_LENGTHS_I64,
     WEIGHTED_EDGELIST_I64_F64,
     WEIGHTED_GRAPH_I64_F64,
 )
@@ -317,6 +320,12 @@ def _site(target: str, operand_types: tuple[str | None, ...], keywords=()) -> Cl
         (GRAPH_TARGET, (EDGELIST_I64,), GRAPH_RULE, GRAPH_I64),
         (BFS_TARGET, (GRAPH_I64, NODE_I64), BFS_RULE, BFS_EDGES_I64),
         (
+            SHORTEST_PATH_LENGTHS_TARGET,
+            (GRAPH_I64, NODE_I64),
+            SHORTEST_PATH_LENGTHS_RULE,
+            SHORTEST_PATH_LENGTHS_I64,
+        ),
+        (
             WEIGHTED_GRAPH_TARGET,
             (WEIGHTED_EDGELIST_I64_F64,),
             WEIGHTED_GRAPH_RULE,
@@ -345,6 +354,7 @@ def test_exact_static_traversal_shapes_are_claimed(target, types, rule, result) 
         (BFS_TARGET, (GRAPH_I64, "int"), ()),
         (BFS_TARGET, (GRAPH_I64,), ()),
         (BFS_TARGET, (GRAPH_I64, NODE_I64), (KeywordArg(name="depth_limit"),)),
+        (SHORTEST_PATH_LENGTHS_TARGET, (GRAPH_I64, NODE_I64), (KeywordArg(name="cutoff"),)),
         (DIJKSTRA_TARGET, (WEIGHTED_GRAPH_I64_F64, None), ()),
         (DIJKSTRA_TARGET, (GRAPH_I64, NODE_I64), ()),
         (DIJKSTRA_TARGET, (WEIGHTED_GRAPH_I64_F64, NODE_I64), (KeywordArg(name="cutoff"),)),
@@ -396,6 +406,20 @@ def test_lowering_builds_once_and_borrows_resident_consumers() -> None:
     assert "petgraph::graph::UnGraph<i64, ()>" in joined
     assert "adjacency_order" in joined
     assert "is_exact_instance_of::<pyo3::types::PyList>" in joined
+
+
+def test_shortest_path_lengths_lowering_uses_ordered_bfs_helper() -> None:
+    lowered = lower(
+        _claimed(
+            SHORTEST_PATH_LENGTHS_TARGET,
+            (GRAPH_I64, NODE_I64),
+            SHORTEST_PATH_LENGTHS_RULE,
+            SHORTEST_PATH_LENGTHS_I64,
+        ),
+        _ctx("graph", "source"),
+    )
+    assert lowered.rust == "__rxtnx_single_source_shortest_path_lengths_i64(py, &graph, source)?"
+    assert "result.set_item(graph.graph[source_node], 0_i64)" in "\n".join(lowered.helpers)
 
 
 def test_dijkstra_lowering_is_ordered_partial_cmp_not_total_cmp() -> None:

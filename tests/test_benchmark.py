@@ -9,9 +9,15 @@ BENCHMARKS_ROOT = Path(__file__).resolve().parents[1] / "benchmarks"
 sys.path.insert(0, str(BENCHMARKS_ROOT))
 
 from bench_product_routes import (  # noqa: E402
+    KERNELS,
     _break_even,
     _format_core_provenance_line,
 )
+
+
+def test_shortest_path_lengths_benchmark_smoke_is_non_timed_and_typed() -> None:
+    assert "def shortest_path_lengths_product(" in KERNELS
+    assert "ShortestPathLengthsI64" in KERNELS
 
 
 def _cell(requested_nodes: int, *, valid: bool) -> dict[str, object]:

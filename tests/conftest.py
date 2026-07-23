@@ -39,9 +39,9 @@ _optional_core_root = _maybe_prepend_core_src()
 
 import rextio  # noqa: E402
 from rextio.plugins.api import PLUGIN_API_VERSION  # noqa: E402
+from rextio_networkx.host_compat import require_supported_plugin_api  # noqa: E402
 
-if PLUGIN_API_VERSION != "1.3":
-    raise RuntimeError(f"rextio-networkx requires plugin API 1.3, found {PLUGIN_API_VERSION}")
+require_supported_plugin_api(PLUGIN_API_VERSION, consumer="rextio-networkx")
 
 if _optional_core_root is not None:
     rextio_file = Path(rextio.__file__).resolve()
