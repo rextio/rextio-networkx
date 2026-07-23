@@ -8,6 +8,8 @@ value equivalence is certified under Cargo in ``tests/e2e``.
 
 from __future__ import annotations
 
+from dataclasses import replace
+
 import pytest
 
 from rextio.plugins.api import (
@@ -16,6 +18,7 @@ from rextio.plugins.api import (
     KeywordArg,
     LoweringContext,
     NotCovered,
+    ReceiverMeta,
     Rejected,
 )
 
@@ -203,3 +206,30 @@ def test_lower_wrong_target_returns_none_via_router_error() -> None:
 def test_lower_fails_closed_on_wrong_operand_count() -> None:
     with pytest.raises(ValueError, match="exactly one operand"):
         lower(_claimed_site(), _ctx(operands=("a", "b")))
+
+
+@pytest.mark.parametrize(
+    "forged",
+    [
+        lambda site: replace(site, kind="binop"),
+        lambda site: replace(site, target="rextio_networkx.graph_from_edgelist"),
+        lambda site: replace(site, rule_id="rextio-networkx/forged"),
+        lambda site: replace(site, result_type="rextio-networkx/forged"),
+        lambda site: replace(site, operand_types=("rextio-networkx/forged",)),
+        lambda site: replace(site, keywords=(KeywordArg(name="copy"),)),
+        lambda site: replace(
+            site,
+            receiver=ReceiverMeta(arg_type="object", expr_kind="name", is_safe=True),
+        ),
+    ],
+    ids=["kind", "target", "rule", "result", "operand-types", "keywords", "receiver"],
+)
+def test_lower_rejects_forged_claim_metadata(forged) -> None:
+    """Lowering must independently enforce every static call-shape invariant."""
+    with pytest.raises(ValueError):
+        lower(forged(_claimed_site()), _ctx())
+
+
+def test_lower_rejects_forged_context_receiver() -> None:
+    with pytest.raises(ValueError, match="lowering contract mismatch"):
+        lower(_claimed_site(), replace(_ctx(), receiver="edges"))
