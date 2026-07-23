@@ -173,11 +173,11 @@ def test_generated_source_owns_petgraph_and_constructs_once(project: CertifiedPr
     assert has_path_body.count("__rxtnx_graph_from_edgelist_i64(&edges)") == 1
     assert dijkstra_body.count("__rxtnx_weighted_graph_from_edgelist_i64_f64(&edges)") == 1
     assert bfs_body.index("__rxtnx_parse_edgelist_i64(py, &edges)") < bfs_body.index(
-        "__rxtnx_parse_source_i64(py, &source)"
+        "__rxtnx_parse_source_i64(py, &source, \"source\")"
     )
     assert dijkstra_body.index(
         "__rxtnx_parse_weighted_edgelist_i64_f64(py, &edges)"
-    ) < dijkstra_body.index("__rxtnx_parse_source_i64(py, &source)")
+    ) < dijkstra_body.index("__rxtnx_parse_source_i64(py, &source, \"source\")")
     assert "__rxtnx_bfs_edges_i64(py, &" in bfs_body
     assert "__rxtnx_single_source_shortest_path_lengths_i64(py, &" in shortest_body
     assert "__rxtnx_has_path_i64(py, &" in has_path_body
@@ -581,6 +581,20 @@ def test_native_and_fallback_match_exact_has_path_missing_endpoint_errors(
     native_both, fallback_both = _leg_error_signatures(checker, ([(0, 1)], -9, -8))
     assert native_both == expected_source
     assert fallback_both == expected_source
+
+
+def test_native_and_fallback_match_exact_has_path_target_boundary_error(
+    project: CertifiedProject,
+) -> None:
+    checker = project.equivalence_checker("nx_traversal_app.kernels.has_path_product")
+    expected = (
+        TypeError,
+        "rextio-networkx: target must be an exact int",
+        ("rextio-networkx: target must be an exact int",),
+    )
+    native, fallback = _leg_error_signatures(checker, ([(0, 1)], 0, True))
+    assert native == expected
+    assert fallback == expected
 
 
 def test_build_records_exact_core_and_petgraph_provenance(project: CertifiedProject) -> None:

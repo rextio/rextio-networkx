@@ -68,12 +68,13 @@ def exact_i64_helper() -> str:
 
 
 def source_parser_helper() -> str:
-    """Define the strict NodeI64 parameter conversion."""
+    """Define strict NodeI64 conversion with the rendered parameter label."""
     return r"""fn __rxtnx_parse_source_i64(
     _py: pyo3::Python<'_>,
     value: &pyo3::Bound<'_, pyo3::types::PyAny>,
+    location: &str,
 ) -> pyo3::PyResult<i64> {
-    __rxtnx_parse_exact_i64(value, "source")
+    __rxtnx_parse_exact_i64(value, location)
 }"""
 
 
