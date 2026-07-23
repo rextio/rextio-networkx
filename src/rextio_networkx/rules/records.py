@@ -76,6 +76,20 @@ _RULES = (
         "Use GraphI64 and two NodeI64 annotations with no options or keywords.",
     ),
     _native(
+        "rextio-networkx/number-of-nodes",
+        "number_of_nodes(GraphI64)",
+        "A checked scalar query borrows the resident unweighted graph and matches Graph.number_of_nodes(), including zero for the empty edge-induced graph.",
+        "RXTP-NETWORKX-012",
+        "Pass a GraphI64 produced by graph_from_edgelist.",
+    ),
+    _native(
+        "rextio-networkx/number-of-edges",
+        "number_of_edges(GraphI64)",
+        "A checked scalar query borrows the resident graph and matches Graph.number_of_edges(), with duplicate/reversed edges deduplicated and each self-loop counted once.",
+        "RXTP-NETWORKX-013",
+        "Pass a GraphI64 produced by graph_from_edgelist.",
+    ),
+    _native(
         "rextio-networkx/weighted-graph-from-edgelist",
         "weighted_graph_from_edgelist(WeightedEdgeListI64F64)",
         "Validates every exact weighted occurrence before deduplication and builds a resident petgraph UnGraph with first-adjacency-order and last-weight-wins semantics.",

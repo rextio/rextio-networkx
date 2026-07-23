@@ -27,6 +27,10 @@ Changelog and Semantic Versioning conventions.
   It shares the exact ordered component materializer with the retained
   `connected_components_from_edgelist` route, borrows the existing graph, and
   emits the shared Rust helper once when both routes coexist.
+- Typed `number_of_nodes(GraphI64) -> int` and
+  `number_of_edges(GraphI64) -> int` scalar resident queries. Both use checked
+  `usize`-to-`i64` conversion; edge counts preserve NetworkX deduplication and
+  count each self-loop once, while an empty edge-induced graph returns zero.
 - Focused fallback/claim/lowering and real-Cargo certification coverage for
   diamonds, duplicate and reversed edges, self-loops, disconnected graphs,
   non-contiguous signed-i64 labels, exact missing-source `NodeNotFound`, and

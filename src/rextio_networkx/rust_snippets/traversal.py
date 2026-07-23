@@ -8,6 +8,8 @@ BFS_EDGES = "__rxtnx_bfs_edges_i64"
 SHORTEST_PATH_LENGTHS = "__rxtnx_single_source_shortest_path_lengths_i64"
 HAS_PATH = "__rxtnx_has_path_i64"
 SHORTEST_PATH_LENGTH = "__rxtnx_shortest_path_length_i64"
+NUMBER_OF_NODES = "__rxtnx_number_of_nodes_i64"
+NUMBER_OF_EDGES = "__rxtnx_number_of_edges_i64"
 DIJKSTRA_LENGTHS = "__rxtnx_dijkstra_lengths_i64_f64"
 
 
@@ -559,6 +561,32 @@ def shortest_path_length_helper() -> str:
 }"""
 
 
+def number_of_nodes_helper() -> str:
+    """Define an exact checked resident node-count query."""
+    return r"""fn __rxtnx_number_of_nodes_i64(
+    graph: &RxtNxGraphI64,
+) -> pyo3::PyResult<i64> {
+    i64::try_from(graph.graph.node_count()).map_err(|_| {
+        pyo3::exceptions::PyOverflowError::new_err(
+            "rextio-networkx: node count is outside signed-i64 range",
+        )
+    })
+}"""
+
+
+def number_of_edges_helper() -> str:
+    """Define an exact checked resident edge-count query."""
+    return r"""fn __rxtnx_number_of_edges_i64(
+    graph: &RxtNxGraphI64,
+) -> pyo3::PyResult<i64> {
+    i64::try_from(graph.graph.edge_count()).map_err(|_| {
+        pyo3::exceptions::PyOverflowError::new_err(
+            "rextio-networkx: edge count is outside signed-i64 range",
+        )
+    })
+}"""
+
+
 def dijkstra_helper() -> str:
     """Define counter-ordered Dijkstra and exact Python result materialization."""
     return r"""#[derive(Clone, Copy)]
@@ -750,6 +778,16 @@ def shortest_path_length_helpers() -> tuple[str, ...]:
     )
 
 
+def number_of_nodes_helpers() -> tuple[str, ...]:
+    """Return exact support needed by the resident node-count claim."""
+    return (*graph_type_helpers(), number_of_nodes_helper())
+
+
+def number_of_edges_helpers() -> tuple[str, ...]:
+    """Return exact support needed by the resident edge-count claim."""
+    return (*graph_type_helpers(), number_of_edges_helper())
+
+
 def dijkstra_helpers() -> tuple[str, ...]:
     """Return exact support needed by a Dijkstra consumer claim."""
     return (
@@ -780,6 +818,8 @@ def traversal_helpers() -> tuple[str, ...]:
         shortest_path_lengths_helper(),
         has_path_helper(),
         shortest_path_length_helper(),
+        number_of_nodes_helper(),
+        number_of_edges_helper(),
         dijkstra_helper(),
     )
 
@@ -793,6 +833,8 @@ __all__ = [
     "BFS_EDGES",
     "SHORTEST_PATH_LENGTHS",
     "SHORTEST_PATH_LENGTH",
+    "NUMBER_OF_EDGES",
+    "NUMBER_OF_NODES",
     "HAS_PATH",
     "DIJKSTRA_LENGTHS",
     "GRAPH_FROM_EDGELIST",
@@ -806,6 +848,8 @@ __all__ = [
     "node_type_helpers",
     "shortest_path_lengths_helpers",
     "shortest_path_length_helpers",
+    "number_of_edges_helpers",
+    "number_of_nodes_helpers",
     "traversal_helpers",
     "traversal_support",
     "weighted_edge_list_type_helpers",

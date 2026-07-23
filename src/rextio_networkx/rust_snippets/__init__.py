@@ -18,6 +18,8 @@ from rextio_networkx.rust_snippets.components import (
 from rextio_networkx.rust_snippets.traversal import (
     BFS_EDGES,
     HAS_PATH,
+    NUMBER_OF_EDGES,
+    NUMBER_OF_NODES,
     SHORTEST_PATH_LENGTH,
     SHORTEST_PATH_LENGTHS,
     DIJKSTRA_LENGTHS,
@@ -29,6 +31,8 @@ from rextio_networkx.rust_snippets.traversal import (
 __all__ = [
     "BFS_EDGES",
     "HAS_PATH",
+    "NUMBER_OF_EDGES",
+    "NUMBER_OF_NODES",
     "SHORTEST_PATH_LENGTH",
     "SHORTEST_PATH_LENGTHS",
     "DIJKSTRA_LENGTHS",
