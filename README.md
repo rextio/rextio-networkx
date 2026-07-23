@@ -91,8 +91,9 @@ nx.single_source_dijkstra_path_length(G, source, weight="weight")
   value is a Python `float`. Tests compare ordered `list(result.items())`,
   exact key/value types, and float `hex()` values.
 - Missing BFS source raises `networkx.NetworkXError("The node X is not in the
-  graph.")`. Missing shortest-path-lengths and Dijkstra sources raise
-  `networkx.NodeNotFound("Node X not found in graph")`.
+  graph.")`. Missing shortest-path-lengths source raises
+  `networkx.NodeNotFound("Source X is not in G")`; missing Dijkstra source
+  raises `networkx.NodeNotFound("Node X not found in graph")`.
 
 The typed `connected_components_from_edgelist` route remains available and
 shares the strict raw edge parser and ordered petgraph constructor.

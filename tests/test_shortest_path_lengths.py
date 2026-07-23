@@ -54,8 +54,8 @@ def test_missing_source_is_exact_networkx_node_not_found() -> None:
     with pytest.raises(nx.NodeNotFound) as caught:
         rn.single_source_shortest_path_lengths(graph, -9)
     assert (str(caught.value), caught.value.args) == (
-        "Node -9 not found in graph",
-        ("Node -9 not found in graph",),
+        "Source -9 is not in G",
+        ("Source -9 is not in G",),
     )
 
 

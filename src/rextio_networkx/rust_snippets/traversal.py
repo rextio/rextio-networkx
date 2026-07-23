@@ -412,7 +412,7 @@ def shortest_path_lengths_helper() -> str:
         return Err(__rxtnx_networkx_exception(
             py,
             "NodeNotFound",
-            format!("Node {} not found in graph", source),
+            format!("Source {} is not in G", source),
         )?);
     };
     let result = pyo3::types::PyDict::new(py);

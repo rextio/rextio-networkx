@@ -496,8 +496,8 @@ def test_native_and_fallback_match_exact_missing_source_errors(project: Certifie
     )
     expected_shortest = (
         nx.NodeNotFound,
-        "Node -9 not found in graph",
-        ("Node -9 not found in graph",),
+        "Source -9 is not in G",
+        ("Source -9 is not in G",),
     )
     native_shortest, fallback_shortest = _leg_error_signatures(shortest, ([(0, 1)], -9))
     assert native_shortest == expected_shortest

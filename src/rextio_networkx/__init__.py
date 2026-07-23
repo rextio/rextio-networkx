@@ -133,8 +133,6 @@ def single_source_shortest_path_lengths(
     if type(graph) is not nx.Graph or not graph.graph.get("__rextio_networkx_graph_i64__", False):
         raise TypeError("rextio-networkx: graph must be produced by graph_from_edgelist")
     checked_source = _validate_node(source, "source")
-    if checked_source not in graph:
-        raise nx.NodeNotFound(f"Node {checked_source} not found in graph")
     return nx.single_source_shortest_path_length(graph, checked_source)
 
 
