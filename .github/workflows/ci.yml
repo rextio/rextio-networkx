@@ -32,5 +32,5 @@ jobs:
         run: python -m build
       - name: Run cargo-free suite
         run: pytest -m "not needs_cargo"
-      - name: Run real-Cargo traversal proof
-        run: pytest tests/e2e/test_traversal_real_cargo.py
+      - name: Run real-Cargo components and traversal proofs
+        run: pytest tests/e2e/test_components_real_cargo.py tests/e2e/test_traversal_real_cargo.py

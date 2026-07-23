@@ -245,3 +245,39 @@ def test_lower_guard_survives_optimized_interpreter() -> None:
         },
     )
     assert "guard-fired" in completed.stdout
+
+
+def test_lower_metadata_contract_survives_optimized_interpreter() -> None:
+    """A forged result type must still fail closed when Python assertions vanish."""
+    program = (
+        "from rextio.plugins.api import ClaimSite, LoweringContext\n"
+        "from rextio_networkx.claim.components import CC_RULE, CC_TARGET\n"
+        "from rextio_networkx.diagnostics import EDGELIST_I64\n"
+        "from rextio_networkx.lower import lower\n"
+        "site = ClaimSite(kind='call', target=CC_TARGET, operand_types=(EDGELIST_I64,),\n"
+        "                 file_path='', line=0, column=0, rule_id=CC_RULE,\n"
+        "                 result_type='rextio-networkx/forged')\n"
+        "ctx = LoweringContext(operands=('edges',), target_language='rust', fresh_name=lambda p: p)\n"
+        "try:\n"
+        "    lower(site, ctx)\n"
+        "except ValueError:\n"
+        "    print('guard-fired')\n"
+        "else:\n"
+        "    raise SystemExit('metadata guard did not fire under -O')\n"
+    )
+    completed = subprocess.run(
+        [sys.executable, "-O", "-c", program],
+        capture_output=True,
+        text=True,
+        check=True,
+        env={
+            **os.environ,
+            "PYTHONPATH": os.pathsep.join(
+                [
+                    str(Path(__file__).parents[1] / "src"),
+                    os.environ.get("PYTHONPATH", ""),
+                ]
+            ),
+        },
+    )
+    assert "guard-fired" in completed.stdout

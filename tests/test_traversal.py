@@ -4,6 +4,7 @@ from __future__ import annotations
 
 import math
 from copy import deepcopy
+from dataclasses import replace
 
 import networkx as nx
 import pytest
@@ -15,6 +16,7 @@ from rextio.plugins.api import (
     KeywordArg,
     LoweringContext,
     NotCovered,
+    ReceiverMeta,
     Rejected,
 )
 from rextio_networkx.claim import claim
@@ -445,3 +447,92 @@ def test_lowering_operand_guards_survive_without_asserts() -> None:
     site = _claimed(BFS_TARGET, (GRAPH_I64, NODE_I64), BFS_RULE, BFS_EDGES_I64)
     with pytest.raises(ValueError, match="requires exactly 2 operands"):
         lower(site, _ctx("graph"))
+
+
+@pytest.mark.parametrize(
+    ("target", "types", "rule", "result", "operands"),
+    [
+        (GRAPH_TARGET, (EDGELIST_I64,), GRAPH_RULE, GRAPH_I64, ("edges",)),
+        (BFS_TARGET, (GRAPH_I64, NODE_I64), BFS_RULE, BFS_EDGES_I64, ("graph", "source")),
+        (
+            SHORTEST_PATH_LENGTHS_TARGET,
+            (GRAPH_I64, NODE_I64),
+            SHORTEST_PATH_LENGTHS_RULE,
+            SHORTEST_PATH_LENGTHS_I64,
+            ("graph", "source"),
+        ),
+        (
+            WEIGHTED_GRAPH_TARGET,
+            (WEIGHTED_EDGELIST_I64_F64,),
+            WEIGHTED_GRAPH_RULE,
+            WEIGHTED_GRAPH_I64_F64,
+            ("edges",),
+        ),
+        (
+            DIJKSTRA_TARGET,
+            (WEIGHTED_GRAPH_I64_F64, NODE_I64),
+            DIJKSTRA_RULE,
+            DIJKSTRA_LENGTHS_I64,
+            ("graph", "source"),
+        ),
+    ],
+)
+@pytest.mark.parametrize(
+    "forged",
+    [
+        lambda site: replace(site, kind="binop"),
+        lambda site: replace(site, rule_id="rextio-networkx/forged"),
+        lambda site: replace(site, result_type="rextio-networkx/forged"),
+        lambda site: replace(site, operand_types=("rextio-networkx/forged",)),
+        lambda site: replace(site, keywords=(KeywordArg(name="cutoff"),)),
+        lambda site: replace(
+            site,
+            receiver=ReceiverMeta(arg_type="object", expr_kind="name", is_safe=True),
+        ),
+    ],
+    ids=["kind", "rule", "result", "operand-types", "keywords", "receiver"],
+)
+def test_traversal_lowering_rejects_forged_claim_metadata(
+    target: str,
+    types: tuple[str, ...],
+    rule: str,
+    result: str,
+    operands: tuple[str, ...],
+    forged,
+) -> None:
+    with pytest.raises(ValueError, match="lowering contract mismatch"):
+        lower(forged(_claimed(target, types, rule, result)), _ctx(*operands))
+
+
+@pytest.mark.parametrize(
+    ("target", "types", "rule", "result", "operands"),
+    [
+        (BFS_TARGET, (GRAPH_I64, NODE_I64), BFS_RULE, BFS_EDGES_I64, ("graph", "source")),
+        (
+            SHORTEST_PATH_LENGTHS_TARGET,
+            (GRAPH_I64, NODE_I64),
+            SHORTEST_PATH_LENGTHS_RULE,
+            SHORTEST_PATH_LENGTHS_I64,
+            ("graph", "source"),
+        ),
+        (
+            DIJKSTRA_TARGET,
+            (WEIGHTED_GRAPH_I64_F64, NODE_I64),
+            DIJKSTRA_RULE,
+            DIJKSTRA_LENGTHS_I64,
+            ("graph", "source"),
+        ),
+    ],
+)
+def test_traversal_lowering_rejects_forged_context_receiver(
+    target: str,
+    types: tuple[str, ...],
+    rule: str,
+    result: str,
+    operands: tuple[str, ...],
+) -> None:
+    with pytest.raises(ValueError, match="lowering contract mismatch"):
+        lower(
+            _claimed(target, types, rule, result),
+            replace(_ctx(*operands), receiver="forged_receiver"),
+        )
