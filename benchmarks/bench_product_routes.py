@@ -91,9 +91,9 @@ def _baseline() -> dict[str, object]:
     import rextio
     import rextio_networkx
     from rextio.plugins.api import PLUGIN_API_VERSION
+    from rextio_networkx.host_compat import require_supported_plugin_api
 
-    if PLUGIN_API_VERSION != "1.3":
-        raise RuntimeError(f"benchmark requires plugin API 1.3, found {PLUGIN_API_VERSION}")
+    require_supported_plugin_api(PLUGIN_API_VERSION, consumer="benchmark")
     rextio_file = Path(rextio.__file__).resolve()
     if core_root is not None and not rextio_file.is_relative_to(core_root / "src"):
         raise RuntimeError(f"{_CORE_ROOT_ENV} is set but rextio imported from {rextio_file}")

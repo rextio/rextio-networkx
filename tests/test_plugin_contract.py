@@ -15,6 +15,8 @@ import sys
 import tomllib
 from pathlib import Path
 
+import pytest
+
 from rextio.config.schema import PluginConfig
 from rextio.plugins.api import (
     PLUGIN_DIAGNOSTIC_CODE_PATTERN,
@@ -27,6 +29,7 @@ from rextio.plugins.loader import load_plugin_registry
 from rextio.targets.models import TargetSpec
 
 from rextio_networkx.claim.components import CC_RULE
+from rextio_networkx.host_compat import supports_plugin_api
 from rextio_networkx.plugin import PLUGIN_ID, RextioNetworkxPlugin, plugin
 
 
@@ -39,6 +42,17 @@ def test_entry_point_factory_returns_plugin() -> None:
     assert isinstance(obj, RextioNetworkxPlugin)
     assert obj.plugin_id == PLUGIN_ID
     assert obj.api_version == "1.3"
+    assert not hasattr(obj, "artifact_capabilities")
+
+
+@pytest.mark.parametrize("version", ["1.3", "1.4", "1.99"])
+def test_provider_accepts_same_major_hosts_from_api_13(version: str) -> None:
+    assert supports_plugin_api(version)
+
+
+@pytest.mark.parametrize("version", ["1.2", "2.0", "1.3.0", "dev", None])
+def test_provider_rejects_incompatible_or_ambiguous_host_apis(version: object) -> None:
+    assert not supports_plugin_api(version)
 
 
 def test_registry_loads_and_lowering_is_provided() -> None:

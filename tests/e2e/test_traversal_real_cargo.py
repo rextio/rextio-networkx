@@ -22,6 +22,7 @@ from rextio.ir.types import RxtPluginType
 from rextio.plugins.api import PLUGIN_API_VERSION
 from rextio.plugins.testing import CertifiedProject, EquivalenceChecker, build_certification_project
 from rextio_networkx.diagnostics import EDGELIST_I64, NODE_I64, WEIGHTED_EDGELIST_I64_F64
+from rextio_networkx.host_compat import require_supported_plugin_api
 from rextio_networkx.plugin_types import plugin_type
 
 pytestmark = [
@@ -84,8 +85,8 @@ def _rextio_version() -> str:
 @pytest.fixture(scope="module")
 def project(tmp_path_factory: pytest.TempPathFactory) -> CertifiedProject:
     # Use the installed rextio dependency (optional REXTIO_CORE_ROOT override in
-    # conftest). Require plugin API 1.3; do not hardcode a machine-local path.
-    assert PLUGIN_API_VERSION == "1.3"
+    # conftest). The provider is API 1.3 and accepts later compatible 1.x hosts.
+    require_supported_plugin_api(PLUGIN_API_VERSION, consumer="real-cargo traversal proof")
 
     root = tmp_path_factory.mktemp("nx_traversal")
     (root / "rextio.toml").write_text(
