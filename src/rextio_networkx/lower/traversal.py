@@ -8,16 +8,19 @@ from rextio_networkx.claim.traversal import (
     BFS_TARGET,
     DIJKSTRA_TARGET,
     GRAPH_TARGET,
+    SHORTEST_PATH_LENGTHS_TARGET,
     WEIGHTED_GRAPH_TARGET,
 )
 from rextio_networkx.rust_snippets.traversal import (
     BFS_EDGES,
     DIJKSTRA_LENGTHS,
     GRAPH_FROM_EDGELIST,
+    SHORTEST_PATH_LENGTHS,
     WEIGHTED_GRAPH_FROM_EDGELIST,
     bfs_helpers,
     dijkstra_helpers,
     graph_constructor_helpers,
+    shortest_path_lengths_helpers,
     weighted_graph_constructor_helpers,
 )
 
@@ -52,6 +55,12 @@ def try_lower(claimed: ClaimSite, ctx: LoweringContext) -> LoweredExpr | None:
         return LoweredExpr(
             rust=f"{BFS_EDGES}(py, &{operands[0]}, {operands[1]})?",
             helpers=bfs_helpers(),
+        )
+    if claimed.target == SHORTEST_PATH_LENGTHS_TARGET:
+        _require_operands(claimed.target, operands, 2)
+        return LoweredExpr(
+            rust=f"{SHORTEST_PATH_LENGTHS}(py, &{operands[0]}, {operands[1]})?",
+            helpers=shortest_path_lengths_helpers(),
         )
     if claimed.target == DIJKSTRA_TARGET:
         _require_operands(claimed.target, operands, 2)

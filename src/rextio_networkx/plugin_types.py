@@ -11,6 +11,7 @@ from rextio_networkx.diagnostics import (
     EDGELIST_I64,
     GRAPH_I64,
     NODE_I64,
+    SHORTEST_PATH_LENGTHS_I64,
     WEIGHTED_EDGELIST_I64_F64,
     WEIGHTED_GRAPH_I64_F64,
 )
@@ -97,6 +98,12 @@ PLUGIN_TYPES: tuple[PluginType, ...] = (
     PluginType(
         key=DIJKSTRA_LENGTHS_I64,
         annotations=("rextio_networkx.DijkstraLengthsI64",),
+        rust_type="pyo3::Bound<'py, pyo3::types::PyDict>",
+        conversion=_DICT_CONVERSION,
+    ),
+    PluginType(
+        key=SHORTEST_PATH_LENGTHS_I64,
+        annotations=("rextio_networkx.ShortestPathLengthsI64",),
         rust_type="pyo3::Bound<'py, pyo3::types::PyDict>",
         conversion=_DICT_CONVERSION,
     ),

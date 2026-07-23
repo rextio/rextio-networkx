@@ -10,6 +10,7 @@ from rextio_networkx.diagnostics import (
     EDGELIST_I64,
     GRAPH_I64,
     NODE_I64,
+    SHORTEST_PATH_LENGTHS_I64,
     WEIGHTED_EDGELIST_I64_F64,
     WEIGHTED_GRAPH_I64_F64,
     reject_site,
@@ -17,15 +18,19 @@ from rextio_networkx.diagnostics import (
 
 GRAPH_TARGET = "rextio_networkx.graph_from_edgelist"
 BFS_TARGET = "rextio_networkx.bfs_edges"
+SHORTEST_PATH_LENGTHS_TARGET = "rextio_networkx.single_source_shortest_path_lengths"
 WEIGHTED_GRAPH_TARGET = "rextio_networkx.weighted_graph_from_edgelist"
 DIJKSTRA_TARGET = "rextio_networkx.dijkstra_path_lengths"
 
 GRAPH_RULE = "rextio-networkx/graph-from-edgelist"
 BFS_RULE = "rextio-networkx/bfs-edges"
+SHORTEST_PATH_LENGTHS_RULE = "rextio-networkx/single-source-shortest-path-lengths"
 WEIGHTED_GRAPH_RULE = "rextio-networkx/weighted-graph-from-edgelist"
 DIJKSTRA_RULE = "rextio-networkx/dijkstra-path-lengths"
 
-_TARGETS = frozenset({GRAPH_TARGET, BFS_TARGET, WEIGHTED_GRAPH_TARGET, DIJKSTRA_TARGET})
+_TARGETS = frozenset(
+    {GRAPH_TARGET, BFS_TARGET, SHORTEST_PATH_LENGTHS_TARGET, WEIGHTED_GRAPH_TARGET, DIJKSTRA_TARGET}
+)
 
 
 def try_claim(site: ClaimSite) -> ClaimResult | None:
@@ -45,6 +50,11 @@ def try_claim(site: ClaimSite) -> ClaimResult | None:
         rule = BFS_RULE
         result_type = BFS_EDGES_I64
         spelling = "bfs_edges(GraphI64, NodeI64)"
+    elif site.target == SHORTEST_PATH_LENGTHS_TARGET:
+        expected = (GRAPH_I64, NODE_I64)
+        rule = SHORTEST_PATH_LENGTHS_RULE
+        result_type = SHORTEST_PATH_LENGTHS_I64
+        spelling = "single_source_shortest_path_lengths(GraphI64, NodeI64)"
     elif site.target == WEIGHTED_GRAPH_TARGET:
         expected = (WEIGHTED_EDGELIST_I64_F64,)
         rule = WEIGHTED_GRAPH_RULE
@@ -68,6 +78,8 @@ __all__ = [
     "DIJKSTRA_TARGET",
     "GRAPH_RULE",
     "GRAPH_TARGET",
+    "SHORTEST_PATH_LENGTHS_RULE",
+    "SHORTEST_PATH_LENGTHS_TARGET",
     "WEIGHTED_GRAPH_RULE",
     "WEIGHTED_GRAPH_TARGET",
     "try_claim",

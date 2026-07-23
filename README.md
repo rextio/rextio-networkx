@@ -19,16 +19,25 @@ from rextio_networkx import (
     DijkstraLengthsI64,
     EdgeListI64,
     NodeI64,
+    ShortestPathLengthsI64,
     WeightedEdgeListI64F64,
     bfs_edges,
     dijkstra_path_lengths,
     graph_from_edgelist,
+    single_source_shortest_path_lengths,
     weighted_graph_from_edgelist,
 )
 
 
 def bfs_product(edges: EdgeListI64, source: NodeI64) -> BfsEdgesI64:
     return bfs_edges(graph_from_edgelist(edges), source)
+
+
+def shortest_path_lengths_product(
+    edges: EdgeListI64,
+    source: NodeI64,
+) -> ShortestPathLengthsI64:
+    return single_source_shortest_path_lengths(graph_from_edgelist(edges), source)
 
 
 def dijkstra_product(
@@ -54,6 +63,7 @@ The fallback legs execute these exact NetworkX 3.5 constructions:
 G = nx.Graph()
 G.add_edges_from(edges)
 list(nx.bfs_edges(G, source))
+nx.single_source_shortest_path_length(G, source)
 
 G = nx.Graph()
 G.add_weighted_edges_from(edges)
@@ -70,6 +80,9 @@ nx.single_source_dijkstra_path_length(G, source, weight="weight")
   wins exactly as in `nx.Graph`.
 - BFS uses the preserved neighbor order and returns the exact ordered concrete
   `list[tuple[int, int]]`.
+- `single_source_shortest_path_lengths` uses the same ordered BFS and returns
+  the exact source-first `dict[int, int]` discovery order of
+  `nx.single_source_shortest_path_length`; its source is always integer `0`.
 - Dijkstra uses `(distance, monotonic discovery counter, node)` heap semantics,
   inserts keys when finalized, ignores equal-distance rediscovery, skips stale
   entries, supports cumulative `+inf`, and can decrease a previously discovered
@@ -78,7 +91,7 @@ nx.single_source_dijkstra_path_length(G, source, weight="weight")
   value is a Python `float`. Tests compare ordered `list(result.items())`,
   exact key/value types, and float `hex()` values.
 - Missing BFS source raises `networkx.NetworkXError("The node X is not in the
-  graph.")`. Missing Dijkstra source raises
+  graph.")`. Missing shortest-path-lengths and Dijkstra sources raise
   `networkx.NodeNotFound("Node X not found in graph")`.
 
 The typed `connected_components_from_edgelist` route remains available and

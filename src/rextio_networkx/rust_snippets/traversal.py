@@ -5,6 +5,7 @@ from __future__ import annotations
 GRAPH_FROM_EDGELIST = "__rxtnx_graph_from_edgelist_i64"
 WEIGHTED_GRAPH_FROM_EDGELIST = "__rxtnx_weighted_graph_from_edgelist_i64_f64"
 BFS_EDGES = "__rxtnx_bfs_edges_i64"
+SHORTEST_PATH_LENGTHS = "__rxtnx_single_source_shortest_path_lengths_i64"
 DIJKSTRA_LENGTHS = "__rxtnx_dijkstra_lengths_i64_f64"
 
 
@@ -397,6 +398,53 @@ def bfs_helper() -> str:
 }"""
 
 
+def shortest_path_lengths_helper() -> str:
+    """Define source-first, discovery-ordered unweighted shortest-path lengths."""
+    return r"""fn __rxtnx_single_source_shortest_path_lengths_i64<'py>(
+    py: pyo3::Python<'py>,
+    graph: &RxtNxGraphI64,
+    source: i64,
+) -> pyo3::PyResult<pyo3::Bound<'py, pyo3::types::PyDict>> {
+    use pyo3::types::PyDictMethods;
+    use std::collections::VecDeque;
+
+    let Some(&source_node) = graph.index_of.get(&source) else {
+        return Err(__rxtnx_networkx_exception(
+            py,
+            "NodeNotFound",
+            format!("Node {} not found in graph", source),
+        )?);
+    };
+    let result = pyo3::types::PyDict::new(py);
+    let mut distances: Vec<Option<i64>> = vec![None; graph.graph.node_count()];
+    let mut queue = VecDeque::new();
+    distances[source_node.index()] = Some(0);
+    result.set_item(graph.graph[source_node], 0_i64)?;
+    queue.push_back(source_node);
+
+    while let Some(parent) = queue.pop_front() {
+        let parent_distance = distances[parent.index()].ok_or_else(|| {
+            pyo3::exceptions::PyRuntimeError::new_err(
+                "rextio-networkx: internal BFS distance is missing",
+            )
+        })?;
+        let child_distance = parent_distance.checked_add(1).ok_or_else(|| {
+            pyo3::exceptions::PyOverflowError::new_err(
+                "rextio-networkx: shortest-path distance is outside signed-i64 range",
+            )
+        })?;
+        for &child in &graph.adjacency_order[parent.index()] {
+            if distances[child.index()].is_none() {
+                distances[child.index()] = Some(child_distance);
+                result.set_item(graph.graph[child], child_distance)?;
+                queue.push_back(child);
+            }
+        }
+    }
+    Ok(result)
+}"""
+
+
 def dijkstra_helper() -> str:
     """Define counter-ordered Dijkstra and exact Python result materialization."""
     return r"""#[derive(Clone, Copy)]
@@ -558,6 +606,16 @@ def bfs_helpers() -> tuple[str, ...]:
     )
 
 
+def shortest_path_lengths_helpers() -> tuple[str, ...]:
+    """Return exact support needed by the unweighted distance consumer claim."""
+    return (
+        *node_type_helpers(),
+        *graph_type_helpers(),
+        networkx_exception_helper(),
+        shortest_path_lengths_helper(),
+    )
+
+
 def dijkstra_helpers() -> tuple[str, ...]:
     """Return exact support needed by a Dijkstra consumer claim."""
     return (
@@ -585,6 +643,7 @@ def traversal_helpers() -> tuple[str, ...]:
         weighted_graph_constructor_helper(),
         networkx_exception_helper(),
         bfs_helper(),
+        shortest_path_lengths_helper(),
         dijkstra_helper(),
     )
 
@@ -596,6 +655,7 @@ def traversal_support() -> str:
 
 __all__ = [
     "BFS_EDGES",
+    "SHORTEST_PATH_LENGTHS",
     "DIJKSTRA_LENGTHS",
     "GRAPH_FROM_EDGELIST",
     "WEIGHTED_GRAPH_FROM_EDGELIST",
@@ -605,6 +665,7 @@ __all__ = [
     "graph_constructor_helpers",
     "graph_type_helpers",
     "node_type_helpers",
+    "shortest_path_lengths_helpers",
     "traversal_helpers",
     "traversal_support",
     "weighted_edge_list_type_helpers",

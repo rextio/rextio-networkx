@@ -12,6 +12,7 @@ from __future__ import annotations
 from rextio_networkx.rust_snippets.components import cc_call_name, cc_helpers
 from rextio_networkx.rust_snippets.traversal import (
     BFS_EDGES,
+    SHORTEST_PATH_LENGTHS,
     DIJKSTRA_LENGTHS,
     GRAPH_FROM_EDGELIST,
     WEIGHTED_GRAPH_FROM_EDGELIST,
@@ -20,6 +21,7 @@ from rextio_networkx.rust_snippets.traversal import (
 
 __all__ = [
     "BFS_EDGES",
+    "SHORTEST_PATH_LENGTHS",
     "DIJKSTRA_LENGTHS",
     "GRAPH_FROM_EDGELIST",
     "WEIGHTED_GRAPH_FROM_EDGELIST",

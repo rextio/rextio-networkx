@@ -22,7 +22,7 @@ from rextio.ir.types import RxtPluginType
 from rextio.plugins.api import PLUGIN_API_VERSION
 from rextio.plugins.testing import CertifiedProject, EquivalenceChecker, build_certification_project
 from rextio_networkx.diagnostics import EDGELIST_I64, NODE_I64, WEIGHTED_EDGELIST_I64_F64
-from rextio_networkx.host_compat import require_supported_plugin_api
+from rextio_networkx.host_compat import require_supported_plugin_api, supports_plugin_api
 from rextio_networkx.plugin_types import plugin_type
 
 pytestmark = [
@@ -42,17 +42,26 @@ from rextio_networkx import (
     EdgeListI64,
     GraphI64,
     NodeI64,
+    ShortestPathLengthsI64,
     WeightedEdgeListI64F64,
     bfs_edges,
     connected_components_from_edgelist,
     dijkstra_path_lengths,
     graph_from_edgelist,
+    single_source_shortest_path_lengths,
     weighted_graph_from_edgelist,
 )
 
 
 def bfs_product(edges: EdgeListI64, source: NodeI64) -> BfsEdgesI64:
     return bfs_edges(graph_from_edgelist(edges), source)
+
+
+def shortest_path_lengths_product(
+    edges: EdgeListI64,
+    source: NodeI64,
+) -> ShortestPathLengthsI64:
+    return single_source_shortest_path_lengths(graph_from_edgelist(edges), source)
 
 
 def dijkstra_product(
@@ -125,7 +134,7 @@ def _functions(project: CertifiedProject) -> dict[str, dict[str, object]]:
 
 def test_routes_and_exact_rxt092_gates(project: CertifiedProject) -> None:
     functions = _functions(project)
-    for name in ("bfs_product", "dijkstra_product"):
+    for name in ("bfs_product", "shortest_path_lengths_product", "dijkstra_product"):
         function = functions[f"nx_traversal_app.kernels.{name}"]
         assert function["route"] == "native-plugin:rextio-networkx"
         assert function["native_status"] == "accepted"
@@ -149,8 +158,12 @@ def test_generated_source_owns_petgraph_and_constructs_once(project: CertifiedPr
     assert "petgraph::graph::UnGraph<i64, ()>" in source
     assert "petgraph::graph::UnGraph<i64, f64>" in source
     bfs_body = _function_body(source, "nx_traversal_app__kernels__bfs_product")
+    shortest_body = _function_body(
+        source, "nx_traversal_app__kernels__shortest_path_lengths_product"
+    )
     dijkstra_body = _function_body(source, "nx_traversal_app__kernels__dijkstra_product")
     assert bfs_body.count("__rxtnx_graph_from_edgelist_i64(&edges)") == 1
+    assert shortest_body.count("__rxtnx_graph_from_edgelist_i64(&edges)") == 1
     assert dijkstra_body.count("__rxtnx_weighted_graph_from_edgelist_i64_f64(&edges)") == 1
     assert bfs_body.index("__rxtnx_parse_edgelist_i64(py, &edges)") < bfs_body.index(
         "__rxtnx_parse_source_i64(py, &source)"
@@ -159,6 +172,7 @@ def test_generated_source_owns_petgraph_and_constructs_once(project: CertifiedPr
         "__rxtnx_parse_weighted_edgelist_i64_f64(py, &edges)"
     ) < dijkstra_body.index("__rxtnx_parse_source_i64(py, &source)")
     assert "__rxtnx_bfs_edges_i64(py, &" in bfs_body
+    assert "__rxtnx_single_source_shortest_path_lengths_i64(py, &" in shortest_body
     assert "__rxtnx_dijkstra_lengths_i64_f64(py, &" in dijkstra_body
     assert source.count("fn __rxtnx_edgelist_i64_to_py") == 1
     assert source.count("fn __rxtnx_weighted_edgelist_i64_f64_to_py") == 1
@@ -290,6 +304,10 @@ def _bfs_equal(left: object, right: object) -> bool:
     return type(left) is list and type(right) is list and left == right
 
 
+def _shortest_path_lengths_equal(left: object, right: object) -> bool:
+    return type(left) is dict and type(right) is dict and list(left.items()) == list(right.items())
+
+
 def _dijkstra_signature(result: object) -> list[tuple[type, object, type, str]]:
     assert type(result) is dict
     return [
@@ -330,6 +348,37 @@ def test_native_bfs_matches_fallback_and_exact_reference(
     graph.add_edges_from(edges)
     assert actual == list(nx.bfs_edges(graph, source))
     assert all(type(edge) is tuple and all(type(node) is int for node in edge) for edge in actual)
+    assert edges == before
+
+
+SHORTEST_PATH_LENGTHS_CASES = [
+    ([(0, 2), (0, 1), (2, 3), (1, 3)], 0),
+    ([(4, 1), (2, 4), (1, 4), (4, 2), (2, 3)], 4),
+    ([(7, 7), (7, 8), (8, 8), (8, 9)], 7),
+    ([(0, 1), (1, 2), (10, 11)], 0),
+    ([(-(2**63), 17), (17, 2**63 - 1), (900, 901)], -(2**63)),
+]
+
+
+@pytest.mark.parametrize(("edges", "source"), SHORTEST_PATH_LENGTHS_CASES)
+def test_native_shortest_path_lengths_matches_fallback_and_exact_reference(
+    project: CertifiedProject,
+    edges: list[tuple[int, int]],
+    source: int,
+) -> None:
+    before = deepcopy(edges)
+    checker = project.equivalence_checker(
+        "nx_traversal_app.kernels.shortest_path_lengths_product",
+        equals=_shortest_path_lengths_equal,
+        args_equals=lambda left, right: left == right,
+    )
+    actual = checker(edges, source)
+    graph = nx.Graph()
+    graph.add_edges_from(edges)
+    expected = nx.single_source_shortest_path_length(graph, source)
+    assert list(actual.items()) == list(expected.items())
+    assert list(actual.items())[0] == (source, 0)
+    assert all(type(node) is int and type(distance) is int for node, distance in actual.items())
     assert edges == before
 
 
@@ -442,6 +491,18 @@ def test_native_and_fallback_match_exact_missing_source_errors(project: Certifie
     assert native_bfs == expected_bfs
     assert fallback_bfs == expected_bfs
 
+    shortest = project.equivalence_checker(
+        "nx_traversal_app.kernels.shortest_path_lengths_product"
+    )
+    expected_shortest = (
+        nx.NodeNotFound,
+        "Node -9 not found in graph",
+        ("Node -9 not found in graph",),
+    )
+    native_shortest, fallback_shortest = _leg_error_signatures(shortest, ([(0, 1)], -9))
+    assert native_shortest == expected_shortest
+    assert fallback_shortest == expected_shortest
+
     dijkstra = project.equivalence_checker("nx_traversal_app.kernels.dijkstra_product")
     expected_dijkstra = (
         nx.NodeNotFound,
@@ -459,7 +520,7 @@ def test_build_records_exact_core_and_petgraph_provenance(project: CertifiedProj
             encoding="utf-8"
         )
     )
-    assert provenance["plugin_api"] == "1.3"
+    assert supports_plugin_api(provenance["plugin_api"])
     assert provenance["rextio_version"] == _rextio_version()
     assert Path(provenance["rextio_file"]).resolve() == Path(rextio.__file__).resolve()
     assert Path(provenance["rextio_file"]).is_file()

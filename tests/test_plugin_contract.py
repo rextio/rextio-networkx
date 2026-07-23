@@ -10,6 +10,7 @@ added without restructuring the package).
 
 from __future__ import annotations
 
+import os
 import subprocess
 import sys
 import tomllib
@@ -73,6 +74,7 @@ def test_covers_declares_networkx_and_adapter() -> None:
     assert "rextio_networkx" in coverage.packages
     assert "rextio_networkx.connected_components_from_edgelist" in coverage.symbols
     assert "rextio_networkx.bfs_edges" in coverage.symbols
+    assert "rextio_networkx.single_source_shortest_path_lengths" in coverage.symbols
     assert "rextio_networkx.dijkstra_path_lengths" in coverage.symbols
 
 
@@ -85,6 +87,7 @@ def test_coverage_symbols_are_only_lowerable_adapters() -> None:
         "rextio_networkx.connected_components_from_edgelist",
         "rextio_networkx.graph_from_edgelist",
         "rextio_networkx.bfs_edges",
+        "rextio_networkx.single_source_shortest_path_lengths",
         "rextio_networkx.weighted_graph_from_edgelist",
         "rextio_networkx.dijkstra_path_lengths",
     }
@@ -129,6 +132,7 @@ def test_type_vocabulary_keys_and_annotations() -> None:
         "rextio-networkx/component-list",
         "rextio-networkx/bfs-edges-i64",
         "rextio-networkx/dijkstra-lengths-i64",
+        "rextio-networkx/shortest-path-lengths-i64",
         "rextio-networkx/graph-i64",
         "rextio-networkx/weighted-graph-i64-f64",
     }
@@ -145,6 +149,7 @@ def test_type_vocabulary_keys_and_annotations() -> None:
         "rextio_networkx.ComponentList",
         "rextio_networkx.BfsEdgesI64",
         "rextio_networkx.DijkstraLengthsI64",
+        "rextio_networkx.ShortestPathLengthsI64",
         "rextio_networkx.GraphI64",
         "rextio_networkx.WeightedGraphI64F64",
     }
@@ -196,6 +201,7 @@ def test_registry_binds_types_and_crates() -> None:
         "rextio-networkx/component-list",
         "rextio-networkx/bfs-edges-i64",
         "rextio-networkx/dijkstra-lengths-i64",
+        "rextio-networkx/shortest-path-lengths-i64",
         "rextio-networkx/graph-i64",
         "rextio-networkx/weighted-graph-i64-f64",
     }
@@ -228,5 +234,14 @@ def test_lower_guard_survives_optimized_interpreter() -> None:
         capture_output=True,
         text=True,
         check=True,
+        env={
+            **os.environ,
+            "PYTHONPATH": os.pathsep.join(
+                [
+                    str(Path(__file__).parents[1] / "src"),
+                    os.environ.get("PYTHONPATH", ""),
+                ]
+            ),
+        },
     )
     assert "guard-fired" in completed.stdout

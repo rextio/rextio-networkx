@@ -24,6 +24,7 @@ WeightedEdgeListI64F64: TypeAlias = list[tuple[int, int, float]]
 ComponentList: TypeAlias = list[set[int]]
 BfsEdgesI64: TypeAlias = list[tuple[int, int]]
 DijkstraLengthsI64: TypeAlias = dict[int, int | float]
+ShortestPathLengthsI64: TypeAlias = dict[int, int]
 
 # Resident annotations.  Their runtime value in fallback mode is an exact
 # ``networkx.Graph``; their native value is an opaque petgraph-owned structure.
@@ -122,6 +123,21 @@ def bfs_edges(graph: GraphI64, source: NodeI64) -> BfsEdgesI64:
     return list(nx.bfs_edges(graph, checked_source))
 
 
+def single_source_shortest_path_lengths(
+    graph: GraphI64,
+    source: NodeI64,
+) -> ShortestPathLengthsI64:
+    """Return ``nx.single_source_shortest_path_length(graph, source)`` exactly."""
+    import networkx as nx
+
+    if type(graph) is not nx.Graph or not graph.graph.get("__rextio_networkx_graph_i64__", False):
+        raise TypeError("rextio-networkx: graph must be produced by graph_from_edgelist")
+    checked_source = _validate_node(source, "source")
+    if checked_source not in graph:
+        raise nx.NodeNotFound(f"Node {checked_source} not found in graph")
+    return nx.single_source_shortest_path_length(graph, checked_source)
+
+
 def dijkstra_path_lengths(
     graph: WeightedGraphI64F64,
     source: NodeI64,
@@ -151,6 +167,7 @@ __all__ = [
     "GraphI64",
     "NodeI64",
     "RextioNetworkxPlugin",
+    "ShortestPathLengthsI64",
     "WeightedEdgeListI64F64",
     "WeightedGraphI64F64",
     "__version__",
@@ -159,5 +176,6 @@ __all__ = [
     "dijkstra_path_lengths",
     "graph_from_edgelist",
     "plugin",
+    "single_source_shortest_path_lengths",
     "weighted_graph_from_edgelist",
 ]
