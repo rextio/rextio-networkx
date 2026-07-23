@@ -11,6 +11,8 @@ from rextio_networkx.claim.traversal import (
     DIJKSTRA_TARGET,
     GRAPH_RULE,
     GRAPH_TARGET,
+    HAS_PATH_RULE,
+    HAS_PATH_TARGET,
     SHORTEST_PATH_LENGTHS_RULE,
     SHORTEST_PATH_LENGTHS_TARGET,
     WEIGHTED_GRAPH_RULE,
@@ -30,11 +32,13 @@ from rextio_networkx.rust_snippets.traversal import (
     BFS_EDGES,
     DIJKSTRA_LENGTHS,
     GRAPH_FROM_EDGELIST,
+    HAS_PATH,
     SHORTEST_PATH_LENGTHS,
     WEIGHTED_GRAPH_FROM_EDGELIST,
     bfs_helpers,
     dijkstra_helpers,
     graph_constructor_helpers,
+    has_path_helpers,
     shortest_path_lengths_helpers,
     weighted_graph_constructor_helpers,
 )
@@ -128,6 +132,19 @@ def try_lower(claimed: ClaimSite, ctx: LoweringContext) -> LoweredExpr | None:
         return LoweredExpr(
             rust=f"{SHORTEST_PATH_LENGTHS}(py, &{operands[0]}, {operands[1]})?",
             helpers=shortest_path_lengths_helpers(),
+        )
+    if claimed.target == HAS_PATH_TARGET:
+        operands = _require_static_contract(
+            claimed,
+            ctx,
+            target=HAS_PATH_TARGET,
+            rule_id=HAS_PATH_RULE,
+            result_type="bool",
+            operand_types=(GRAPH_I64, NODE_I64, NODE_I64),
+        )
+        return LoweredExpr(
+            rust=f"{HAS_PATH}(py, &{operands[0]}, {operands[1]}, {operands[2]})?",
+            helpers=has_path_helpers(),
         )
     if claimed.target == DIJKSTRA_TARGET:
         operands = _require_static_contract(

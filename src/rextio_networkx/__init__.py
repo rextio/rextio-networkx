@@ -136,6 +136,17 @@ def single_source_shortest_path_lengths(
     return nx.single_source_shortest_path_length(graph, checked_source)
 
 
+def has_path(graph: GraphI64, source: NodeI64, target: NodeI64) -> bool:
+    """Return NetworkX 3.5 ``has_path`` for one resident unweighted graph."""
+    import networkx as nx
+
+    if type(graph) is not nx.Graph or not graph.graph.get("__rextio_networkx_graph_i64__", False):
+        raise TypeError("rextio-networkx: graph must be produced by graph_from_edgelist")
+    checked_source = _validate_node(source, "source")
+    checked_target = _validate_node(target, "target")
+    return nx.has_path(graph, checked_source, checked_target)
+
+
 def dijkstra_path_lengths(
     graph: WeightedGraphI64F64,
     source: NodeI64,
@@ -173,6 +184,7 @@ __all__ = [
     "connected_components_from_edgelist",
     "dijkstra_path_lengths",
     "graph_from_edgelist",
+    "has_path",
     "plugin",
     "single_source_shortest_path_lengths",
     "weighted_graph_from_edgelist",

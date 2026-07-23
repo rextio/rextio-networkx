@@ -24,6 +24,7 @@ from rextio_networkx import (
     bfs_edges,
     dijkstra_path_lengths,
     graph_from_edgelist,
+    has_path,
     single_source_shortest_path_lengths,
     weighted_graph_from_edgelist,
 )
@@ -38,6 +39,10 @@ def shortest_path_lengths_product(
     source: NodeI64,
 ) -> ShortestPathLengthsI64:
     return single_source_shortest_path_lengths(graph_from_edgelist(edges), source)
+
+
+def has_path_product(edges: EdgeListI64, source: NodeI64, target: NodeI64) -> bool:
+    return has_path(graph_from_edgelist(edges), source, target)
 
 
 def dijkstra_product(
@@ -64,6 +69,7 @@ G = nx.Graph()
 G.add_edges_from(edges)
 list(nx.bfs_edges(G, source))
 nx.single_source_shortest_path_length(G, source)
+nx.has_path(G, source, target)
 
 G = nx.Graph()
 G.add_weighted_edges_from(edges)
@@ -83,6 +89,11 @@ nx.single_source_dijkstra_path_length(G, source, weight="weight")
 - `single_source_shortest_path_lengths` uses the same ordered BFS and returns
   the exact source-first `dict[int, int]` discovery order of
   `nx.single_source_shortest_path_length`; its source is always integer `0`.
+- `has_path` borrows the same resident unweighted graph, returns an exact Python
+  `bool`, and performs ordered BFS with early success. It accepts only typed
+  `GraphI64, NodeI64, NodeI64` positional arguments; source membership is
+  checked before target membership, matching NetworkX 3.5's exact
+  `NodeNotFound` class, message, and `args`.
 - Dijkstra uses `(distance, monotonic discovery counter, node)` heap semantics,
   inserts keys when finalized, ignores equal-distance rediscovery, skips stale
   entries, supports cumulative `+inf`, and can decrease a previously discovered
@@ -94,6 +105,9 @@ nx.single_source_dijkstra_path_length(G, source, weight="weight")
   graph.")`. Missing shortest-path-lengths source raises
   `networkx.NodeNotFound("Source X is not in G")`; missing Dijkstra source
   raises `networkx.NodeNotFound("Node X not found in graph")`.
+  `has_path` raises `networkx.NodeNotFound("Source X is not in G")` for a
+  missing source before it considers the target, and
+  `networkx.NodeNotFound("Target X is not in G")` for a missing target.
 
 The typed `connected_components_from_edgelist` route remains available and
 shares the strict raw edge parser and ordered petgraph constructor.
@@ -117,7 +131,7 @@ match exception class, `str(e)`, and one-string `e.args`.
 - edge container: exact `list` only
 - unweighted occurrence: exact 2-`tuple`
 - weighted occurrence: exact 3-`tuple`
-- nodes/source: exact Python `int` (not `bool` or a subclass), signed-i64 range
+- nodes/source/target: exact Python `int` (not `bool` or a subclass), signed-i64 range
 - weight: exact Python `float` (not `int`, `bool`, or subclass), finite and
   non-negative; `-0.0` is accepted
 
@@ -128,7 +142,7 @@ objects are never mutated.
 A recognized traversal target with wrong arity, keywords/options, a plain core
 `int` instead of `NodeI64`, wrong resident type, or missing/unresolved required
 plugin annotation is rejected statically as `RXTP-NETWORKX-020`. Directed and
-multigraph inputs, object/mixed labels, target/depth/cutoff/weight options, and
+multigraph inputs, object/mixed labels, depth/cutoff/weight/method options, and
 raw NetworkX spellings are outside this surface and remain fallback-only.
 
 Raw NetworkX APIs such as `networkx.from_edgelist` and

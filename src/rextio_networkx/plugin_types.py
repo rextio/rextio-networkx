@@ -43,8 +43,9 @@ _WEIGHTED_EDGE_CONVERSION = _raw_conversion(
     return_rust="pyo3::Bound<'py, pyo3::types::PyList>",
     return_expr="__rxtnx_weighted_edgelist_i64_f64_to_py(py, &{value})?",
 )
-_NODE_CONVERSION = _raw_conversion(
-    parser="__rxtnx_parse_source_i64",
+_NODE_CONVERSION = BoundaryConversion(
+    param_rust="pyo3::Bound<'py, pyo3::types::PyAny>",
+    param_expr='__rxtnx_parse_source_i64(py, &{param}, "{param}")?',
     return_rust="i64",
     return_expr="{value}",
 )

@@ -12,10 +12,17 @@ Changelog and Semantic Versioning conventions.
   spelling and uses the resident unweighted `petgraph::UnGraph` plus ordered
   adjacency sidecar to match `nx.single_source_shortest_path_length` source-
   first dictionary insertion and BFS discovery order.
+- Typed `has_path(GraphI64, NodeI64, NodeI64) -> bool` adapter. It lowers only
+  the exact no-option typed spelling, borrows the resident unweighted graph,
+  and matches NetworkX 3.5 connected/disconnected and source-before-target
+  missing-endpoint semantics.
 - Focused fallback/claim/lowering and real-Cargo certification coverage for
   diamonds, duplicate and reversed edges, self-loops, disconnected graphs,
   non-contiguous signed-i64 labels, exact missing-source `NodeNotFound`, and
   input immutability.
+- Native-vs-fallback real-Cargo coverage for `has_path`, including
+  connected/disconnected, self-loop, duplicate, signed-i64-bound, and exact
+  missing-source/missing-target `NodeNotFound` class/message/args cases.
 
 ### Changed
 

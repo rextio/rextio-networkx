@@ -6,6 +6,7 @@ GRAPH_FROM_EDGELIST = "__rxtnx_graph_from_edgelist_i64"
 WEIGHTED_GRAPH_FROM_EDGELIST = "__rxtnx_weighted_graph_from_edgelist_i64_f64"
 BFS_EDGES = "__rxtnx_bfs_edges_i64"
 SHORTEST_PATH_LENGTHS = "__rxtnx_single_source_shortest_path_lengths_i64"
+HAS_PATH = "__rxtnx_has_path_i64"
 DIJKSTRA_LENGTHS = "__rxtnx_dijkstra_lengths_i64_f64"
 
 
@@ -67,12 +68,13 @@ def exact_i64_helper() -> str:
 
 
 def source_parser_helper() -> str:
-    """Define the strict NodeI64 parameter conversion."""
+    """Define strict NodeI64 conversion with the rendered parameter label."""
     return r"""fn __rxtnx_parse_source_i64(
     _py: pyo3::Python<'_>,
     value: &pyo3::Bound<'_, pyo3::types::PyAny>,
+    location: &str,
 ) -> pyo3::PyResult<i64> {
-    __rxtnx_parse_exact_i64(value, "source")
+    __rxtnx_parse_exact_i64(value, location)
 }"""
 
 
@@ -445,6 +447,54 @@ def shortest_path_lengths_helper() -> str:
 }"""
 
 
+def has_path_helper() -> str:
+    """Define exact unweighted NetworkX 3.5 ``has_path`` semantics."""
+    return r"""fn __rxtnx_has_path_i64(
+    py: pyo3::Python<'_>,
+    graph: &RxtNxGraphI64,
+    source: i64,
+    target: i64,
+) -> pyo3::PyResult<bool> {
+    use std::collections::VecDeque;
+
+    let Some(&source_node) = graph.index_of.get(&source) else {
+        return Err(__rxtnx_networkx_exception(
+            py,
+            "NodeNotFound",
+            format!("Source {} is not in G", source),
+        )?);
+    };
+    let Some(&target_node) = graph.index_of.get(&target) else {
+        return Err(__rxtnx_networkx_exception(
+            py,
+            "NodeNotFound",
+            format!("Target {} is not in G", target),
+        )?);
+    };
+    if source_node == target_node {
+        return Ok(true);
+    }
+
+    let mut visited = vec![false; graph.graph.node_count()];
+    let mut queue = VecDeque::new();
+    visited[source_node.index()] = true;
+    queue.push_back(source_node);
+
+    while let Some(parent) = queue.pop_front() {
+        for &child in &graph.adjacency_order[parent.index()] {
+            if child == target_node {
+                return Ok(true);
+            }
+            if !visited[child.index()] {
+                visited[child.index()] = true;
+                queue.push_back(child);
+            }
+        }
+    }
+    Ok(false)
+}"""
+
+
 def dijkstra_helper() -> str:
     """Define counter-ordered Dijkstra and exact Python result materialization."""
     return r"""#[derive(Clone, Copy)]
@@ -616,6 +666,16 @@ def shortest_path_lengths_helpers() -> tuple[str, ...]:
     )
 
 
+def has_path_helpers() -> tuple[str, ...]:
+    """Return exact support needed by the resident boolean consumer claim."""
+    return (
+        *node_type_helpers(),
+        *graph_type_helpers(),
+        networkx_exception_helper(),
+        has_path_helper(),
+    )
+
+
 def dijkstra_helpers() -> tuple[str, ...]:
     """Return exact support needed by a Dijkstra consumer claim."""
     return (
@@ -644,6 +704,7 @@ def traversal_helpers() -> tuple[str, ...]:
         networkx_exception_helper(),
         bfs_helper(),
         shortest_path_lengths_helper(),
+        has_path_helper(),
         dijkstra_helper(),
     )
 
@@ -656,6 +717,7 @@ def traversal_support() -> str:
 __all__ = [
     "BFS_EDGES",
     "SHORTEST_PATH_LENGTHS",
+    "HAS_PATH",
     "DIJKSTRA_LENGTHS",
     "GRAPH_FROM_EDGELIST",
     "WEIGHTED_GRAPH_FROM_EDGELIST",
@@ -664,6 +726,7 @@ __all__ = [
     "edge_list_type_helpers",
     "graph_constructor_helpers",
     "graph_type_helpers",
+    "has_path_helpers",
     "node_type_helpers",
     "shortest_path_lengths_helpers",
     "traversal_helpers",
