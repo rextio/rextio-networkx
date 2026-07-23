@@ -16,6 +16,13 @@ Changelog and Semantic Versioning conventions.
   the exact no-option typed spelling, borrows the resident unweighted graph,
   and matches NetworkX 3.5 connected/disconnected and source-before-target
   missing-endpoint semantics.
+- Typed `shortest_path_length(GraphI64, NodeI64, NodeI64) -> int` adapter. Its
+  resident BFS returns the exact unweighted distance, checks a missing source
+  before a missing target, and preserves NetworkX 3.5 `NodeNotFound` and
+  disconnected `NetworkXNoPath` class, message, and arguments.
+- Real-Cargo evidence that one `GraphI64` construction can be shared-borrowed
+  by both `has_path` and `single_source_shortest_path_lengths` without cloning,
+  graph rematerialization, or a Python boundary round-trip.
 - Focused fallback/claim/lowering and real-Cargo certification coverage for
   diamonds, duplicate and reversed edges, self-loops, disconnected graphs,
   non-contiguous signed-i64 labels, exact missing-source `NodeNotFound`, and

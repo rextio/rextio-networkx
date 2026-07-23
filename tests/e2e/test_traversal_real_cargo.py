@@ -49,6 +49,7 @@ from rextio_networkx import (
     dijkstra_path_lengths,
     graph_from_edgelist,
     has_path,
+    shortest_path_length,
     single_source_shortest_path_lengths,
     weighted_graph_from_edgelist,
 )
@@ -78,6 +79,14 @@ def resident_reuse_product(
     if has_path(graph, source, target):
         return single_source_shortest_path_lengths(graph, source)
     return single_source_shortest_path_lengths(graph, target)
+
+
+def shortest_path_length_product(
+    edges: EdgeListI64,
+    source: NodeI64,
+    target: NodeI64,
+) -> int:
+    return shortest_path_length(graph_from_edgelist(edges), source, target)
 
 
 def dijkstra_product(
@@ -155,6 +164,7 @@ def test_routes_and_exact_rxt092_gates(project: CertifiedProject) -> None:
         "shortest_path_lengths_product",
         "has_path_product",
         "resident_reuse_product",
+        "shortest_path_length_product",
         "dijkstra_product",
     ):
         function = functions[f"nx_traversal_app.kernels.{name}"]
@@ -185,11 +195,15 @@ def test_generated_source_owns_petgraph_and_constructs_once(project: CertifiedPr
     )
     has_path_body = _function_body(source, "nx_traversal_app__kernels__has_path_product")
     reuse_body = _function_body(source, "nx_traversal_app__kernels__resident_reuse_product")
+    shortest_pair_body = _function_body(
+        source, "nx_traversal_app__kernels__shortest_path_length_product"
+    )
     dijkstra_body = _function_body(source, "nx_traversal_app__kernels__dijkstra_product")
     assert bfs_body.count("__rxtnx_graph_from_edgelist_i64(&edges)") == 1
     assert shortest_body.count("__rxtnx_graph_from_edgelist_i64(&edges)") == 1
     assert has_path_body.count("__rxtnx_graph_from_edgelist_i64(&edges)") == 1
     assert reuse_body.count("__rxtnx_graph_from_edgelist_i64(&edges)") == 1
+    assert shortest_pair_body.count("__rxtnx_graph_from_edgelist_i64(&edges)") == 1
     assert dijkstra_body.count("__rxtnx_weighted_graph_from_edgelist_i64_f64(&edges)") == 1
     assert bfs_body.index("__rxtnx_parse_edgelist_i64(py, &edges)") < bfs_body.index(
         '__rxtnx_parse_source_i64(py, &source, "source")'
@@ -204,6 +218,7 @@ def test_generated_source_owns_petgraph_and_constructs_once(project: CertifiedPr
     assert reuse_body.count("__rxtnx_single_source_shortest_path_lengths_i64(py, &graph,") == 2
     assert "graph.clone()" not in reuse_body
     assert "__rxtnx_edgelist_i64_to_py" not in reuse_body
+    assert "__rxtnx_shortest_path_length_i64(py, &" in shortest_pair_body
     assert "__rxtnx_dijkstra_lengths_i64_f64(py, &" in dijkstra_body
     assert source.count("fn __rxtnx_edgelist_i64_to_py") == 1
     assert source.count("fn __rxtnx_weighted_edgelist_i64_f64_to_py") == 1
@@ -476,6 +491,35 @@ def test_native_resident_graph_is_reused_across_two_consumers(
     assert edges == before
 
 
+SHORTEST_PATH_LENGTH_CASES = [
+    ([(0, 1), (1, 2)], 0, 2),
+    ([(7, 7), (7, 8)], 7, 7),
+    ([(4, 1), (1, 4), (4, 2)], 2, 1),
+    ([(2**63 - 1, -(2**63))], 2**63 - 1, -(2**63)),
+]
+
+
+@pytest.mark.parametrize(("edges", "source", "target"), SHORTEST_PATH_LENGTH_CASES)
+def test_native_shortest_path_length_matches_fallback_and_exact_reference(
+    project: CertifiedProject,
+    edges: list[tuple[int, int]],
+    source: int,
+    target: int,
+) -> None:
+    before = deepcopy(edges)
+    checker = project.equivalence_checker(
+        "nx_traversal_app.kernels.shortest_path_length_product",
+        args_equals=lambda left, right: left == right,
+    )
+    actual = checker(edges, source, target)
+    graph = nx.Graph()
+    graph.add_edges_from(edges)
+    expected = nx.shortest_path_length(graph, source, target)
+    assert type(actual) is int
+    assert actual == expected
+    assert edges == before
+
+
 DIJKSTRA_CASES = [
     ([(0, 1, 1.5), (1, 2, 2.25), (0, 2, 10.0)], 0),
     ([(0, 1, 9.0), (1, 0, 3.0), (0, 1, 5.0), (1, 2, 1.0)], 0),
@@ -631,6 +675,54 @@ def test_native_and_fallback_match_exact_has_path_missing_endpoint_errors(
     native_both, fallback_both = _leg_error_signatures(checker, ([(0, 1)], -9, -8))
     assert native_both == expected_source
     assert fallback_both == expected_source
+
+
+@pytest.mark.parametrize(
+    ("args", "expected"),
+    [
+        (
+            ([(0, 1), (10, 11)], 0, 11),
+            (
+                nx.NetworkXNoPath,
+                "No path between 0 and 11.",
+                ("No path between 0 and 11.",),
+            ),
+        ),
+        (
+            ([(0, 1)], 0, -9),
+            (
+                nx.NodeNotFound,
+                "Target -9 is not in G",
+                ("Target -9 is not in G",),
+            ),
+        ),
+        (
+            ([(0, 1)], -9, 0),
+            (
+                nx.NodeNotFound,
+                "Source -9 is not in G",
+                ("Source -9 is not in G",),
+            ),
+        ),
+        (
+            ([(0, 1)], -9, -8),
+            (
+                nx.NodeNotFound,
+                "Source -9 is not in G",
+                ("Source -9 is not in G",),
+            ),
+        ),
+    ],
+)
+def test_native_and_fallback_match_exact_shortest_path_length_errors(
+    project: CertifiedProject,
+    args: tuple[object, ...],
+    expected: tuple[type[BaseException], str, tuple[object, ...]],
+) -> None:
+    checker = project.equivalence_checker("nx_traversal_app.kernels.shortest_path_length_product")
+    native, fallback = _leg_error_signatures(checker, args)
+    assert native == expected
+    assert fallback == expected
 
 
 def test_native_and_fallback_match_exact_has_path_target_boundary_error(

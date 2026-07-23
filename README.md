@@ -25,6 +25,7 @@ from rextio_networkx import (
     dijkstra_path_lengths,
     graph_from_edgelist,
     has_path,
+    shortest_path_length,
     single_source_shortest_path_lengths,
     weighted_graph_from_edgelist,
 )
@@ -43,6 +44,14 @@ def shortest_path_lengths_product(
 
 def has_path_product(edges: EdgeListI64, source: NodeI64, target: NodeI64) -> bool:
     return has_path(graph_from_edgelist(edges), source, target)
+
+
+def shortest_path_length_product(
+    edges: EdgeListI64,
+    source: NodeI64,
+    target: NodeI64,
+) -> int:
+    return shortest_path_length(graph_from_edgelist(edges), source, target)
 
 
 def dijkstra_product(
@@ -70,6 +79,7 @@ G.add_edges_from(edges)
 list(nx.bfs_edges(G, source))
 nx.single_source_shortest_path_length(G, source)
 nx.has_path(G, source, target)
+nx.shortest_path_length(G, source, target)
 
 G = nx.Graph()
 G.add_weighted_edges_from(edges)
@@ -94,6 +104,10 @@ nx.single_source_dijkstra_path_length(G, source, weight="weight")
   `GraphI64, NodeI64, NodeI64` positional arguments; source membership is
   checked before target membership, matching NetworkX 3.5's exact
   `NodeNotFound` class, message, and `args`.
+- `shortest_path_length` uses the same source-before-target membership
+  precedence and returns an exact Python `int`, including `0` when source and
+  target are equal. A disconnected pair raises the exact NetworkX 3.5
+  `NetworkXNoPath("No path between X and Y.")`.
 - Dijkstra uses `(distance, monotonic discovery counter, node)` heap semantics,
   inserts keys when finalized, ignores equal-distance rediscovery, skips stale
   entries, supports cumulative `+inf`, and can decrease a previously discovered
@@ -108,6 +122,7 @@ nx.single_source_dijkstra_path_length(G, source, weight="weight")
   `has_path` raises `networkx.NodeNotFound("Source X is not in G")` for a
   missing source before it considers the target, and
   `networkx.NodeNotFound("Target X is not in G")` for a missing target.
+  `shortest_path_length` preserves that precedence and those messages.
 
 The typed `connected_components_from_edgelist` route remains available and
 shares the strict raw edge parser and ordered petgraph constructor.

@@ -75,6 +75,7 @@ def test_covers_declares_networkx_and_adapter() -> None:
     assert "rextio_networkx.connected_components_from_edgelist" in coverage.symbols
     assert "rextio_networkx.bfs_edges" in coverage.symbols
     assert "rextio_networkx.has_path" in coverage.symbols
+    assert "rextio_networkx.shortest_path_length" in coverage.symbols
     assert "rextio_networkx.single_source_shortest_path_lengths" in coverage.symbols
     assert "rextio_networkx.dijkstra_path_lengths" in coverage.symbols
 
@@ -89,6 +90,7 @@ def test_coverage_symbols_are_only_lowerable_adapters() -> None:
         "rextio_networkx.graph_from_edgelist",
         "rextio_networkx.bfs_edges",
         "rextio_networkx.has_path",
+        "rextio_networkx.shortest_path_length",
         "rextio_networkx.single_source_shortest_path_lengths",
         "rextio_networkx.weighted_graph_from_edgelist",
         "rextio_networkx.dijkstra_path_lengths",

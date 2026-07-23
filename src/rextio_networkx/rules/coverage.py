@@ -19,6 +19,7 @@ COVERAGE = CoverageDecl(
         "rextio_networkx.bfs_edges",
         "rextio_networkx.single_source_shortest_path_lengths",
         "rextio_networkx.has_path",
+        "rextio_networkx.shortest_path_length",
         "rextio_networkx.weighted_graph_from_edgelist",
         "rextio_networkx.dijkstra_path_lengths",
     ),
