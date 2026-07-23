@@ -16,15 +16,20 @@ The public proof shapes are:
 ```python
 from rextio_networkx import (
     BfsEdgesI64,
+    ComponentList,
     DijkstraLengthsI64,
     EdgeListI64,
     NodeI64,
     ShortestPathLengthsI64,
     WeightedEdgeListI64F64,
     bfs_edges,
+    connected_components,
     dijkstra_path_lengths,
     graph_from_edgelist,
     has_path,
+    number_of_edges,
+    number_of_nodes,
+    shortest_path_length,
     single_source_shortest_path_lengths,
     weighted_graph_from_edgelist,
 )
@@ -45,6 +50,26 @@ def has_path_product(edges: EdgeListI64, source: NodeI64, target: NodeI64) -> bo
     return has_path(graph_from_edgelist(edges), source, target)
 
 
+def shortest_path_length_product(
+    edges: EdgeListI64,
+    source: NodeI64,
+    target: NodeI64,
+) -> int:
+    return shortest_path_length(graph_from_edgelist(edges), source, target)
+
+
+def components_product(edges: EdgeListI64) -> ComponentList:
+    return connected_components(graph_from_edgelist(edges))
+
+
+def node_count_product(edges: EdgeListI64) -> int:
+    return number_of_nodes(graph_from_edgelist(edges))
+
+
+def edge_count_product(edges: EdgeListI64) -> int:
+    return number_of_edges(graph_from_edgelist(edges))
+
+
 def dijkstra_product(
     edges: WeightedEdgeListI64F64,
     source: NodeI64,
@@ -57,8 +82,8 @@ def dijkstra_product(
 
 The constructor result is an opaque plugin-owned resident graph
 (`PluginType(conversion=None)`). Native code owns a real `petgraph::UnGraph`
-and an insertion-order sidecar; the consumer borrows it. Only the final
-`list[tuple[int, int]]` or ordered Python `dict` crosses back to Python. A
+and an insertion-order sidecar; the consumer borrows it. Only a final
+materialized list/dict/set collection or scalar crosses back to Python. A
 resident value cannot be returned to Python or sent through a materialized
 Python consumer (`RXT092`), and it cannot persist across wrapper calls.
 
@@ -70,6 +95,10 @@ G.add_edges_from(edges)
 list(nx.bfs_edges(G, source))
 nx.single_source_shortest_path_length(G, source)
 nx.has_path(G, source, target)
+nx.shortest_path_length(G, source, target)
+list(nx.connected_components(G))
+G.number_of_nodes()
+G.number_of_edges()
 
 G = nx.Graph()
 G.add_weighted_edges_from(edges)
@@ -94,6 +123,17 @@ nx.single_source_dijkstra_path_length(G, source, weight="weight")
   `GraphI64, NodeI64, NodeI64` positional arguments; source membership is
   checked before target membership, matching NetworkX 3.5's exact
   `NodeNotFound` class, message, and `args`.
+- `shortest_path_length` uses the same source-before-target membership
+  precedence and returns an exact Python `int`, including `0` when source and
+  target are equal. A disconnected pair raises the exact NetworkX 3.5
+  `NetworkXNoPath("No path between X and Y.")`.
+- `connected_components` borrows the resident graph and materializes the same
+  ordered `list[set[int]]` as `list(nx.connected_components(G))`; component
+  order follows first node insertion and each set retains exact integer values.
+- `number_of_nodes` and `number_of_edges` borrow the resident graph and return
+  exact Python integers. Duplicate and reversed duplicate edges count once, a
+  self-loop counts once, and the empty edge-induced graph reports zero nodes
+  and zero edges.
 - Dijkstra uses `(distance, monotonic discovery counter, node)` heap semantics,
   inserts keys when finalized, ignores equal-distance rediscovery, skips stale
   entries, supports cumulative `+inf`, and can decrease a previously discovered
@@ -108,9 +148,11 @@ nx.single_source_dijkstra_path_length(G, source, weight="weight")
   `has_path` raises `networkx.NodeNotFound("Source X is not in G")` for a
   missing source before it considers the target, and
   `networkx.NodeNotFound("Target X is not in G")` for a missing target.
+  `shortest_path_length` preserves that precedence and those messages.
 
-The typed `connected_components_from_edgelist` route remains available and
-shares the strict raw edge parser and ordered petgraph constructor.
+The typed `connected_components_from_edgelist` route remains available. It
+shares the strict raw edge parser, ordered petgraph constructor, and component
+materializer with the resident `connected_components(GraphI64)` route.
 
 API 1.3 type-level support is explicit and granular. `NodeI64`, both edge-list
 types, and both resident graph types own the exact Rust helpers referenced by

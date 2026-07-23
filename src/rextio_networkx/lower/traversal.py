@@ -13,6 +13,12 @@ from rextio_networkx.claim.traversal import (
     GRAPH_TARGET,
     HAS_PATH_RULE,
     HAS_PATH_TARGET,
+    NUMBER_OF_EDGES_RULE,
+    NUMBER_OF_EDGES_TARGET,
+    NUMBER_OF_NODES_RULE,
+    NUMBER_OF_NODES_TARGET,
+    SHORTEST_PATH_LENGTH_RULE,
+    SHORTEST_PATH_LENGTH_TARGET,
     SHORTEST_PATH_LENGTHS_RULE,
     SHORTEST_PATH_LENGTHS_TARGET,
     WEIGHTED_GRAPH_RULE,
@@ -33,12 +39,18 @@ from rextio_networkx.rust_snippets.traversal import (
     DIJKSTRA_LENGTHS,
     GRAPH_FROM_EDGELIST,
     HAS_PATH,
+    NUMBER_OF_EDGES,
+    NUMBER_OF_NODES,
+    SHORTEST_PATH_LENGTH,
     SHORTEST_PATH_LENGTHS,
     WEIGHTED_GRAPH_FROM_EDGELIST,
     bfs_helpers,
     dijkstra_helpers,
     graph_constructor_helpers,
     has_path_helpers,
+    number_of_edges_helpers,
+    number_of_nodes_helpers,
+    shortest_path_length_helpers,
     shortest_path_lengths_helpers,
     weighted_graph_constructor_helpers,
 )
@@ -145,6 +157,45 @@ def try_lower(claimed: ClaimSite, ctx: LoweringContext) -> LoweredExpr | None:
         return LoweredExpr(
             rust=f"{HAS_PATH}(py, &{operands[0]}, {operands[1]}, {operands[2]})?",
             helpers=has_path_helpers(),
+        )
+    if claimed.target == SHORTEST_PATH_LENGTH_TARGET:
+        operands = _require_static_contract(
+            claimed,
+            ctx,
+            target=SHORTEST_PATH_LENGTH_TARGET,
+            rule_id=SHORTEST_PATH_LENGTH_RULE,
+            result_type="int",
+            operand_types=(GRAPH_I64, NODE_I64, NODE_I64),
+        )
+        return LoweredExpr(
+            rust=(f"{SHORTEST_PATH_LENGTH}(py, &{operands[0]}, {operands[1]}, {operands[2]})?"),
+            helpers=shortest_path_length_helpers(),
+        )
+    if claimed.target == NUMBER_OF_NODES_TARGET:
+        operands = _require_static_contract(
+            claimed,
+            ctx,
+            target=NUMBER_OF_NODES_TARGET,
+            rule_id=NUMBER_OF_NODES_RULE,
+            result_type="int",
+            operand_types=(GRAPH_I64,),
+        )
+        return LoweredExpr(
+            rust=f"{NUMBER_OF_NODES}(&{operands[0]})?",
+            helpers=number_of_nodes_helpers(),
+        )
+    if claimed.target == NUMBER_OF_EDGES_TARGET:
+        operands = _require_static_contract(
+            claimed,
+            ctx,
+            target=NUMBER_OF_EDGES_TARGET,
+            rule_id=NUMBER_OF_EDGES_RULE,
+            result_type="int",
+            operand_types=(GRAPH_I64,),
+        )
+        return LoweredExpr(
+            rust=f"{NUMBER_OF_EDGES}(&{operands[0]})?",
+            helpers=number_of_edges_helpers(),
         )
     if claimed.target == DIJKSTRA_TARGET:
         operands = _require_static_contract(

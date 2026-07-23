@@ -100,6 +100,33 @@ def graph_from_edgelist(edges: EdgeListI64) -> GraphI64:
     return graph
 
 
+def connected_components(graph: GraphI64) -> ComponentList:
+    """Return ``list(nx.connected_components(graph))`` for a resident graph."""
+    import networkx as nx
+
+    if type(graph) is not nx.Graph or not graph.graph.get("__rextio_networkx_graph_i64__", False):
+        raise TypeError("rextio-networkx: graph must be produced by graph_from_edgelist")
+    return list(nx.connected_components(graph))
+
+
+def number_of_nodes(graph: GraphI64) -> int:
+    """Return the exact number of nodes in a resident unweighted graph."""
+    import networkx as nx
+
+    if type(graph) is not nx.Graph or not graph.graph.get("__rextio_networkx_graph_i64__", False):
+        raise TypeError("rextio-networkx: graph must be produced by graph_from_edgelist")
+    return graph.number_of_nodes()
+
+
+def number_of_edges(graph: GraphI64) -> int:
+    """Return the exact number of edges in a resident unweighted graph."""
+    import networkx as nx
+
+    if type(graph) is not nx.Graph or not graph.graph.get("__rextio_networkx_graph_i64__", False):
+        raise TypeError("rextio-networkx: graph must be produced by graph_from_edgelist")
+    return graph.number_of_edges()
+
+
 def weighted_graph_from_edgelist(edges: WeightedEdgeListI64F64) -> WeightedGraphI64F64:
     """Build the exact weighted fallback graph used by the resident route."""
     import networkx as nx
@@ -147,6 +174,21 @@ def has_path(graph: GraphI64, source: NodeI64, target: NodeI64) -> bool:
     return nx.has_path(graph, checked_source, checked_target)
 
 
+def shortest_path_length(
+    graph: GraphI64,
+    source: NodeI64,
+    target: NodeI64,
+) -> int:
+    """Return the exact unweighted NetworkX 3.5 source-target path length."""
+    import networkx as nx
+
+    if type(graph) is not nx.Graph or not graph.graph.get("__rextio_networkx_graph_i64__", False):
+        raise TypeError("rextio-networkx: graph must be produced by graph_from_edgelist")
+    checked_source = _validate_node(source, "source")
+    checked_target = _validate_node(target, "target")
+    return nx.shortest_path_length(graph, checked_source, checked_target)
+
+
 def dijkstra_path_lengths(
     graph: WeightedGraphI64F64,
     source: NodeI64,
@@ -181,11 +223,15 @@ __all__ = [
     "WeightedGraphI64F64",
     "__version__",
     "bfs_edges",
+    "connected_components",
     "connected_components_from_edgelist",
     "dijkstra_path_lengths",
     "graph_from_edgelist",
     "has_path",
+    "number_of_edges",
+    "number_of_nodes",
     "plugin",
+    "shortest_path_length",
     "single_source_shortest_path_lengths",
     "weighted_graph_from_edgelist",
 ]

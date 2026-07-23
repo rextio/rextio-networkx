@@ -2,9 +2,10 @@
 
 from __future__ import annotations
 
-from rextio_networkx.rust_snippets.traversal import graph_constructor_helpers
+from rextio_networkx.rust_snippets.traversal import graph_constructor_helpers, graph_type_helpers
 
 _HELPER_NAME = "__rxtnx_connected_components_i64"
+_RESIDENT_HELPER_NAME = "__rxtnx_connected_components_graph_i64"
 
 
 def cc_call_name() -> str:
@@ -14,7 +15,17 @@ def cc_call_name() -> str:
 
 def cc_helpers() -> tuple[str, ...]:
     """Return shared parsing/graph support plus the components helper."""
-    return (*graph_constructor_helpers(), _cc_helper())
+    return (*graph_constructor_helpers(), _resident_cc_helper(), _cc_helper())
+
+
+def resident_cc_call_name() -> str:
+    """Return the resident connected-components helper name."""
+    return _RESIDENT_HELPER_NAME
+
+
+def resident_cc_helpers() -> tuple[str, ...]:
+    """Return graph support plus the resident component materializer."""
+    return (*graph_type_helpers(), _resident_cc_helper())
 
 
 def _cc_helper() -> str:
@@ -22,11 +33,20 @@ def _cc_helper() -> str:
     py: pyo3::Python<'py>,
     edges: &RxtNxEdgeListI64,
 ) -> pyo3::PyResult<pyo3::Bound<'py, pyo3::types::PyList>> {{
+    let graph = __rxtnx_graph_from_edgelist_i64(edges);
+    {_RESIDENT_HELPER_NAME}(py, &graph)
+}}"""
+
+
+def _resident_cc_helper() -> str:
+    return f"""fn {_RESIDENT_HELPER_NAME}<'py>(
+    py: pyo3::Python<'py>,
+    graph: &RxtNxGraphI64,
+) -> pyo3::PyResult<pyo3::Bound<'py, pyo3::types::PyList>> {{
     use petgraph::unionfind::UnionFind;
     use pyo3::types::{{PyListMethods, PySetMethods}};
     use std::collections::HashMap;
 
-    let graph = __rxtnx_graph_from_edgelist_i64(edges);
     let mut vertex_sets = UnionFind::new(graph.graph.node_count());
     for edge in graph.graph.raw_edges() {{
         vertex_sets.union(edge.source().index(), edge.target().index());
@@ -58,4 +78,9 @@ def _cc_helper() -> str:
 }}"""
 
 
-__all__ = ["cc_call_name", "cc_helpers"]
+__all__ = [
+    "cc_call_name",
+    "cc_helpers",
+    "resident_cc_call_name",
+    "resident_cc_helpers",
+]

@@ -45,10 +45,14 @@ from rextio_networkx import (
     ShortestPathLengthsI64,
     WeightedEdgeListI64F64,
     bfs_edges,
+    connected_components,
     connected_components_from_edgelist,
     dijkstra_path_lengths,
     graph_from_edgelist,
     has_path,
+    number_of_edges,
+    number_of_nodes,
+    shortest_path_length,
     single_source_shortest_path_lengths,
     weighted_graph_from_edgelist,
 )
@@ -67,6 +71,37 @@ def shortest_path_lengths_product(
 
 def has_path_product(edges: EdgeListI64, source: NodeI64, target: NodeI64) -> bool:
     return has_path(graph_from_edgelist(edges), source, target)
+
+
+def resident_reuse_product(
+    edges: EdgeListI64,
+    source: NodeI64,
+    target: NodeI64,
+) -> ShortestPathLengthsI64:
+    graph = graph_from_edgelist(edges)
+    if has_path(graph, source, target):
+        return single_source_shortest_path_lengths(graph, source)
+    return single_source_shortest_path_lengths(graph, target)
+
+
+def shortest_path_length_product(
+    edges: EdgeListI64,
+    source: NodeI64,
+    target: NodeI64,
+) -> int:
+    return shortest_path_length(graph_from_edgelist(edges), source, target)
+
+
+def resident_components_product(edges: EdgeListI64) -> ComponentList:
+    return connected_components(graph_from_edgelist(edges))
+
+
+def number_of_nodes_product(edges: EdgeListI64) -> int:
+    return number_of_nodes(graph_from_edgelist(edges))
+
+
+def number_of_edges_product(edges: EdgeListI64) -> int:
+    return number_of_edges(graph_from_edgelist(edges))
 
 
 def dijkstra_product(
@@ -139,7 +174,17 @@ def _functions(project: CertifiedProject) -> dict[str, dict[str, object]]:
 
 def test_routes_and_exact_rxt092_gates(project: CertifiedProject) -> None:
     functions = _functions(project)
-    for name in ("bfs_product", "shortest_path_lengths_product", "has_path_product", "dijkstra_product"):
+    for name in (
+        "bfs_product",
+        "shortest_path_lengths_product",
+        "has_path_product",
+        "resident_reuse_product",
+        "shortest_path_length_product",
+        "resident_components_product",
+        "number_of_nodes_product",
+        "number_of_edges_product",
+        "dijkstra_product",
+    ):
         function = functions[f"nx_traversal_app.kernels.{name}"]
         assert function["route"] == "native-plugin:rextio-networkx"
         assert function["native_status"] == "accepted"
@@ -167,23 +212,47 @@ def test_generated_source_owns_petgraph_and_constructs_once(project: CertifiedPr
         source, "nx_traversal_app__kernels__shortest_path_lengths_product"
     )
     has_path_body = _function_body(source, "nx_traversal_app__kernels__has_path_product")
+    reuse_body = _function_body(source, "nx_traversal_app__kernels__resident_reuse_product")
+    shortest_pair_body = _function_body(
+        source, "nx_traversal_app__kernels__shortest_path_length_product"
+    )
+    resident_components_body = _function_body(
+        source, "nx_traversal_app__kernels__resident_components_product"
+    )
+    node_count_body = _function_body(source, "nx_traversal_app__kernels__number_of_nodes_product")
+    edge_count_body = _function_body(source, "nx_traversal_app__kernels__number_of_edges_product")
     dijkstra_body = _function_body(source, "nx_traversal_app__kernels__dijkstra_product")
     assert bfs_body.count("__rxtnx_graph_from_edgelist_i64(&edges)") == 1
     assert shortest_body.count("__rxtnx_graph_from_edgelist_i64(&edges)") == 1
     assert has_path_body.count("__rxtnx_graph_from_edgelist_i64(&edges)") == 1
+    assert reuse_body.count("__rxtnx_graph_from_edgelist_i64(&edges)") == 1
+    assert shortest_pair_body.count("__rxtnx_graph_from_edgelist_i64(&edges)") == 1
+    assert resident_components_body.count("__rxtnx_graph_from_edgelist_i64(&edges)") == 1
+    assert node_count_body.count("__rxtnx_graph_from_edgelist_i64(&edges)") == 1
+    assert edge_count_body.count("__rxtnx_graph_from_edgelist_i64(&edges)") == 1
     assert dijkstra_body.count("__rxtnx_weighted_graph_from_edgelist_i64_f64(&edges)") == 1
     assert bfs_body.index("__rxtnx_parse_edgelist_i64(py, &edges)") < bfs_body.index(
-        "__rxtnx_parse_source_i64(py, &source, \"source\")"
+        '__rxtnx_parse_source_i64(py, &source, "source")'
     )
     assert dijkstra_body.index(
         "__rxtnx_parse_weighted_edgelist_i64_f64(py, &edges)"
-    ) < dijkstra_body.index("__rxtnx_parse_source_i64(py, &source, \"source\")")
+    ) < dijkstra_body.index('__rxtnx_parse_source_i64(py, &source, "source")')
     assert "__rxtnx_bfs_edges_i64(py, &" in bfs_body
     assert "__rxtnx_single_source_shortest_path_lengths_i64(py, &" in shortest_body
     assert "__rxtnx_has_path_i64(py, &" in has_path_body
+    assert "__rxtnx_has_path_i64(py, &graph, source, target)?" in reuse_body
+    assert reuse_body.count("__rxtnx_single_source_shortest_path_lengths_i64(py, &graph,") == 2
+    assert "graph.clone()" not in reuse_body
+    assert "__rxtnx_edgelist_i64_to_py" not in reuse_body
+    assert "__rxtnx_shortest_path_length_i64(py, &" in shortest_pair_body
+    assert "__rxtnx_connected_components_graph_i64(py, &" in resident_components_body
+    assert "__rxtnx_number_of_nodes_i64(&" in node_count_body
+    assert "__rxtnx_number_of_edges_i64(&" in edge_count_body
     assert "__rxtnx_dijkstra_lengths_i64_f64(py, &" in dijkstra_body
     assert source.count("fn __rxtnx_edgelist_i64_to_py") == 1
     assert source.count("fn __rxtnx_weighted_edgelist_i64_f64_to_py") == 1
+    assert source.count("fn __rxtnx_connected_components_i64") == 1
+    assert source.count("fn __rxtnx_connected_components_graph_i64") == 1
     assert "wrap_pyfunction!(nx_traversal_app__kernels__resident_escape" not in source
 
 
@@ -320,6 +389,16 @@ def _has_path_equal(left: object, right: object) -> bool:
     return type(left) is bool and type(right) is bool and left is right
 
 
+def _components_equal(left: object, right: object) -> bool:
+    return (
+        type(left) is list
+        and type(right) is list
+        and left == right
+        and all(type(component) is set for component in left)
+        and all(type(component) is set for component in right)
+    )
+
+
 def _dijkstra_signature(result: object) -> list[tuple[type, object, type, str]]:
     assert type(result) is dict
     return [
@@ -421,6 +500,123 @@ def test_native_has_path_matches_fallback_and_exact_reference(
     graph.add_edges_from(edges)
     assert type(actual) is bool
     assert actual is nx.has_path(graph, source, target)
+    assert edges == before
+
+
+@pytest.mark.parametrize(
+    ("edges", "source", "target", "expected_source"),
+    [
+        ([(0, 1), (1, 2), (10, 11)], 0, 2, 0),
+        ([(0, 1), (1, 2), (10, 11)], 0, 10, 10),
+    ],
+)
+def test_native_resident_graph_is_reused_across_two_consumers(
+    project: CertifiedProject,
+    edges: list[tuple[int, int]],
+    source: int,
+    target: int,
+    expected_source: int,
+) -> None:
+    before = deepcopy(edges)
+    checker = project.equivalence_checker(
+        "nx_traversal_app.kernels.resident_reuse_product",
+        equals=_shortest_path_lengths_equal,
+        args_equals=lambda left, right: left == right,
+    )
+    actual = checker(edges, source, target)
+    graph = nx.Graph()
+    graph.add_edges_from(edges)
+    expected = nx.single_source_shortest_path_length(graph, expected_source)
+    assert list(actual.items()) == list(expected.items())
+    assert list(actual.items())[0] == (expected_source, 0)
+    assert edges == before
+
+
+SHORTEST_PATH_LENGTH_CASES = [
+    ([(0, 1), (1, 2)], 0, 2),
+    ([(7, 7), (7, 8)], 7, 7),
+    ([(4, 1), (1, 4), (4, 2)], 2, 1),
+    ([(2**63 - 1, -(2**63))], 2**63 - 1, -(2**63)),
+]
+
+
+@pytest.mark.parametrize(("edges", "source", "target"), SHORTEST_PATH_LENGTH_CASES)
+def test_native_shortest_path_length_matches_fallback_and_exact_reference(
+    project: CertifiedProject,
+    edges: list[tuple[int, int]],
+    source: int,
+    target: int,
+) -> None:
+    before = deepcopy(edges)
+    checker = project.equivalence_checker(
+        "nx_traversal_app.kernels.shortest_path_length_product",
+        args_equals=lambda left, right: left == right,
+    )
+    actual = checker(edges, source, target)
+    graph = nx.Graph()
+    graph.add_edges_from(edges)
+    expected = nx.shortest_path_length(graph, source, target)
+    assert type(actual) is int
+    assert actual == expected
+    assert edges == before
+
+
+RESIDENT_COMPONENT_CASES = [
+    [],
+    [(0, 1), (1, 2), (10, 11)],
+    [(4, 1), (1, 4), (4, 4), (20, 21)],
+    [(-(2**63), 7), (2**63 - 1, 2**63 - 1)],
+]
+
+
+@pytest.mark.parametrize("edges", RESIDENT_COMPONENT_CASES)
+def test_native_resident_components_matches_fallback_and_exact_reference(
+    project: CertifiedProject,
+    edges: list[tuple[int, int]],
+) -> None:
+    before = deepcopy(edges)
+    checker = project.equivalence_checker(
+        "nx_traversal_app.kernels.resident_components_product",
+        equals=_components_equal,
+        args_equals=lambda left, right: left == right,
+    )
+    actual = checker(edges)
+    graph = nx.Graph()
+    graph.add_edges_from(edges)
+    expected = list(nx.connected_components(graph))
+    assert actual == expected
+    assert all(type(component) is set for component in actual)
+    assert edges == before
+
+
+GRAPH_COUNT_CASES = [
+    ([], 0, 0),
+    ([(0, 1)], 2, 1),
+    ([(4, 1), (1, 4), (4, 4)], 2, 2),
+    ([(-(2**63), 2**63 - 1), (0, 0), (10, 11)], 5, 3),
+]
+
+
+@pytest.mark.parametrize(("edges", "expected_nodes", "expected_edges"), GRAPH_COUNT_CASES)
+def test_native_graph_counts_match_fallback_and_exact_reference(
+    project: CertifiedProject,
+    edges: list[tuple[int, int]],
+    expected_nodes: int,
+    expected_edges: int,
+) -> None:
+    before = deepcopy(edges)
+    nodes = project.equivalence_checker(
+        "nx_traversal_app.kernels.number_of_nodes_product",
+        args_equals=lambda left, right: left == right,
+    )(edges)
+    edge_count = project.equivalence_checker(
+        "nx_traversal_app.kernels.number_of_edges_product",
+        args_equals=lambda left, right: left == right,
+    )(edges)
+    graph = nx.Graph()
+    graph.add_edges_from(edges)
+    assert type(nodes) is int and nodes == expected_nodes == graph.number_of_nodes()
+    assert type(edge_count) is int and edge_count == expected_edges == graph.number_of_edges()
     assert edges == before
 
 
@@ -533,9 +729,7 @@ def test_native_and_fallback_match_exact_missing_source_errors(project: Certifie
     assert native_bfs == expected_bfs
     assert fallback_bfs == expected_bfs
 
-    shortest = project.equivalence_checker(
-        "nx_traversal_app.kernels.shortest_path_lengths_product"
-    )
+    shortest = project.equivalence_checker("nx_traversal_app.kernels.shortest_path_lengths_product")
     expected_shortest = (
         nx.NodeNotFound,
         "Source -9 is not in G",
@@ -581,6 +775,54 @@ def test_native_and_fallback_match_exact_has_path_missing_endpoint_errors(
     native_both, fallback_both = _leg_error_signatures(checker, ([(0, 1)], -9, -8))
     assert native_both == expected_source
     assert fallback_both == expected_source
+
+
+@pytest.mark.parametrize(
+    ("args", "expected"),
+    [
+        (
+            ([(0, 1), (10, 11)], 0, 11),
+            (
+                nx.NetworkXNoPath,
+                "No path between 0 and 11.",
+                ("No path between 0 and 11.",),
+            ),
+        ),
+        (
+            ([(0, 1)], 0, -9),
+            (
+                nx.NodeNotFound,
+                "Target -9 is not in G",
+                ("Target -9 is not in G",),
+            ),
+        ),
+        (
+            ([(0, 1)], -9, 0),
+            (
+                nx.NodeNotFound,
+                "Source -9 is not in G",
+                ("Source -9 is not in G",),
+            ),
+        ),
+        (
+            ([(0, 1)], -9, -8),
+            (
+                nx.NodeNotFound,
+                "Source -9 is not in G",
+                ("Source -9 is not in G",),
+            ),
+        ),
+    ],
+)
+def test_native_and_fallback_match_exact_shortest_path_length_errors(
+    project: CertifiedProject,
+    args: tuple[object, ...],
+    expected: tuple[type[BaseException], str, tuple[object, ...]],
+) -> None:
+    checker = project.equivalence_checker("nx_traversal_app.kernels.shortest_path_length_product")
+    native, fallback = _leg_error_signatures(checker, args)
+    assert native == expected
+    assert fallback == expected
 
 
 def test_native_and_fallback_match_exact_has_path_target_boundary_error(
