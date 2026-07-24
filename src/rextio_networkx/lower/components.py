@@ -2,12 +2,16 @@
 
 from __future__ import annotations
 
-from rextio.plugins.api import ClaimSite, LoweredExpr, LoweringContext
+from rextio.plugins.api import ClaimExpr, ClaimLiteral, ClaimSite, LoweredExpr, LoweringContext
 
 from rextio_networkx import rust_snippets
 from rextio_networkx.claim.components import (
     CC_RULE,
     CC_TARGET,
+    IS_CONNECTED_RULE,
+    IS_CONNECTED_TARGET,
+    NUMBER_CONNECTED_COMPONENTS_RULE,
+    NUMBER_CONNECTED_COMPONENTS_TARGET,
     RESIDENT_CC_RULE,
     RESIDENT_CC_TARGET,
 )
@@ -20,6 +24,7 @@ def _require_static_contract(
     *,
     target: str,
     rule_id: str,
+    result_type: str,
     operand_types: tuple[str, ...],
 ) -> tuple[str, ...]:
     """Reject forged claim metadata before emitting the components helper.
@@ -28,15 +33,41 @@ def _require_static_contract(
     trust boundary: they must not turn a caller-supplied rule or result type
     into Rust merely because its target happens to look familiar.
     """
+    operand_literals = claimed.operand_literals
+    literals_match = isinstance(operand_literals, tuple) and (
+        not operand_literals
+        or (
+            len(operand_literals) == len(operand_types)
+            and all(
+                isinstance(literal, ClaimLiteral)
+                and not literal.is_literal
+                and literal.value is None
+                for literal in operand_literals
+            )
+        )
+    )
+    expression = claimed.expression
+    expression_matches = expression is None or (
+        isinstance(expression, ClaimExpr)
+        and expression.kind == claimed.kind
+        and expression.target == claimed.target
+        and expression.result_type == claimed.result_type
+    )
     if (
         claimed.kind != "call"
         or claimed.target != target
         or claimed.rule_id != rule_id
-        or claimed.result_type != COMPONENT_LIST
+        or claimed.result_type != result_type
         or claimed.operand_types != operand_types
+        or not literals_match
         or claimed.keywords
+        or claimed.callables
+        or not expression_matches
         or claimed.receiver is not None
-        or ctx.receiver is not None
+        or getattr(ctx, "receiver", None) is not None
+        or ctx.target_language != "rust"
+        or getattr(ctx, "backend", "pyo3") != "pyo3"
+        or getattr(ctx, "leaf_operands", ()) != ()
     ):
         raise ValueError(
             f"rextio-networkx connected-components lowering contract mismatch for {target!r}"
@@ -62,11 +93,38 @@ def try_lower(claimed: ClaimSite, ctx: LoweringContext) -> LoweredExpr | None:
             ctx,
             target=RESIDENT_CC_TARGET,
             rule_id=RESIDENT_CC_RULE,
+            result_type=COMPONENT_LIST,
             operand_types=(GRAPH_I64,),
         )
         return LoweredExpr(
             rust=f"{rust_snippets.resident_cc_call_name()}(py, &{operands[0]})?",
             helpers=rust_snippets.resident_cc_helpers(),
+        )
+    if claimed.target == NUMBER_CONNECTED_COMPONENTS_TARGET:
+        operands = _require_static_contract(
+            claimed,
+            ctx,
+            target=NUMBER_CONNECTED_COMPONENTS_TARGET,
+            rule_id=NUMBER_CONNECTED_COMPONENTS_RULE,
+            result_type="int",
+            operand_types=(GRAPH_I64,),
+        )
+        return LoweredExpr(
+            rust=f"{rust_snippets.number_connected_components_call_name()}(&{operands[0]})?",
+            helpers=rust_snippets.number_connected_components_helpers(),
+        )
+    if claimed.target == IS_CONNECTED_TARGET:
+        operands = _require_static_contract(
+            claimed,
+            ctx,
+            target=IS_CONNECTED_TARGET,
+            rule_id=IS_CONNECTED_RULE,
+            result_type="bool",
+            operand_types=(GRAPH_I64,),
+        )
+        return LoweredExpr(
+            rust=f"{rust_snippets.is_connected_call_name()}(py, &{operands[0]})?",
+            helpers=rust_snippets.is_connected_helpers(),
         )
     if claimed.target != CC_TARGET:
         return None
@@ -75,6 +133,7 @@ def try_lower(claimed: ClaimSite, ctx: LoweringContext) -> LoweredExpr | None:
         ctx,
         target=CC_TARGET,
         rule_id=CC_RULE,
+        result_type=COMPONENT_LIST,
         operand_types=(EDGELIST_I64,),
     )
     name = rust_snippets.cc_call_name()

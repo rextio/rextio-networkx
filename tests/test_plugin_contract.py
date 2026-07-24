@@ -94,6 +94,8 @@ def test_coverage_symbols_are_only_lowerable_adapters() -> None:
         "rextio_networkx.graph_from_edgelist",
         "rextio_networkx.bfs_edges",
         "rextio_networkx.has_path",
+        "rextio_networkx.is_connected",
+        "rextio_networkx.number_connected_components",
         "rextio_networkx.number_of_edges",
         "rextio_networkx.number_of_nodes",
         "rextio_networkx.shortest_path_length",

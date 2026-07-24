@@ -31,6 +31,12 @@ Changelog and Semantic Versioning conventions.
   `number_of_edges(GraphI64) -> int` scalar resident queries. Both use checked
   `usize`-to-`i64` conversion; edge counts preserve NetworkX deduplication and
   count each self-loop once, while an empty edge-induced graph returns zero.
+- Typed `number_connected_components(GraphI64) -> int` and
+  `is_connected(GraphI64) -> bool` resident scalar queries. Both reuse the
+  resident unweighted component walk without materializing Python components;
+  the count returns zero for the null graph, while connectivity preserves
+  NetworkX 3.5's exact `NetworkXPointlessConcept` class, message, and args for
+  that graph.
 - Focused fallback/claim/lowering and real-Cargo certification coverage for
   diamonds, duplicate and reversed edges, self-loops, disconnected graphs,
   non-contiguous signed-i64 labels, exact missing-source `NodeNotFound`, and
@@ -44,6 +50,9 @@ Changelog and Semantic Versioning conventions.
 - Host checks now accept plugin API 1.3 and later 1.x minor versions while the
   provider itself remains API 1.3 and advertises no artifact capability.
 - CI tests the released Rextio 0.1.3 and 0.1.5 hosts on `main` and `0.1.1`.
+- Connected-component lowerers now revalidate literal, callable, expression,
+  backend, and operand-routing metadata at the plugin trust boundary and fail
+  closed on forged or inconsistent claim contexts.
 
 ## [0.1.0] - 2026-07-17
 

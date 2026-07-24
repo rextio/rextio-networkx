@@ -41,6 +41,20 @@ _RULES = (
         "Pass a GraphI64 produced by graph_from_edgelist.",
     ),
     _native(
+        "rextio-networkx/number-connected-components",
+        "number_connected_components(GraphI64)",
+        "Borrows one resident unweighted graph and returns the exact NetworkX 3.5 connected-component count, including zero for the null graph.",
+        "RXTP-NETWORKX-014",
+        "Pass a GraphI64 produced by graph_from_edgelist.",
+    ),
+    _native(
+        "rextio-networkx/is-connected",
+        "is_connected(GraphI64)",
+        "Borrows one resident unweighted graph and matches NetworkX 3.5 connectivity, including NetworkXPointlessConcept for the null graph.",
+        "RXTP-NETWORKX-015",
+        "Pass a non-empty GraphI64 produced by graph_from_edgelist.",
+    ),
+    _native(
         "rextio-networkx/graph-from-edgelist",
         "graph_from_edgelist(EdgeListI64)",
         "Validates an exact raw edge list and builds an opaque resident petgraph UnGraph once, preserving NetworkX node, edge, and adjacency insertion order.",

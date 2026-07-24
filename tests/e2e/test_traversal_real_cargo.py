@@ -50,6 +50,8 @@ from rextio_networkx import (
     dijkstra_path_lengths,
     graph_from_edgelist,
     has_path,
+    is_connected,
+    number_connected_components,
     number_of_edges,
     number_of_nodes,
     shortest_path_length,
@@ -94,6 +96,14 @@ def shortest_path_length_product(
 
 def resident_components_product(edges: EdgeListI64) -> ComponentList:
     return connected_components(graph_from_edgelist(edges))
+
+
+def number_connected_components_product(edges: EdgeListI64) -> int:
+    return number_connected_components(graph_from_edgelist(edges))
+
+
+def is_connected_product(edges: EdgeListI64) -> bool:
+    return is_connected(graph_from_edgelist(edges))
 
 
 def number_of_nodes_product(edges: EdgeListI64) -> int:
@@ -181,6 +191,8 @@ def test_routes_and_exact_rxt092_gates(project: CertifiedProject) -> None:
         "resident_reuse_product",
         "shortest_path_length_product",
         "resident_components_product",
+        "number_connected_components_product",
+        "is_connected_product",
         "number_of_nodes_product",
         "number_of_edges_product",
         "dijkstra_product",
@@ -219,6 +231,10 @@ def test_generated_source_owns_petgraph_and_constructs_once(project: CertifiedPr
     resident_components_body = _function_body(
         source, "nx_traversal_app__kernels__resident_components_product"
     )
+    component_count_body = _function_body(
+        source, "nx_traversal_app__kernels__number_connected_components_product"
+    )
+    is_connected_body = _function_body(source, "nx_traversal_app__kernels__is_connected_product")
     node_count_body = _function_body(source, "nx_traversal_app__kernels__number_of_nodes_product")
     edge_count_body = _function_body(source, "nx_traversal_app__kernels__number_of_edges_product")
     dijkstra_body = _function_body(source, "nx_traversal_app__kernels__dijkstra_product")
@@ -228,6 +244,8 @@ def test_generated_source_owns_petgraph_and_constructs_once(project: CertifiedPr
     assert reuse_body.count("__rxtnx_graph_from_edgelist_i64(&edges)") == 1
     assert shortest_pair_body.count("__rxtnx_graph_from_edgelist_i64(&edges)") == 1
     assert resident_components_body.count("__rxtnx_graph_from_edgelist_i64(&edges)") == 1
+    assert component_count_body.count("__rxtnx_graph_from_edgelist_i64(&edges)") == 1
+    assert is_connected_body.count("__rxtnx_graph_from_edgelist_i64(&edges)") == 1
     assert node_count_body.count("__rxtnx_graph_from_edgelist_i64(&edges)") == 1
     assert edge_count_body.count("__rxtnx_graph_from_edgelist_i64(&edges)") == 1
     assert dijkstra_body.count("__rxtnx_weighted_graph_from_edgelist_i64_f64(&edges)") == 1
@@ -246,6 +264,8 @@ def test_generated_source_owns_petgraph_and_constructs_once(project: CertifiedPr
     assert "__rxtnx_edgelist_i64_to_py" not in reuse_body
     assert "__rxtnx_shortest_path_length_i64(py, &" in shortest_pair_body
     assert "__rxtnx_connected_components_graph_i64(py, &" in resident_components_body
+    assert "__rxtnx_number_connected_components_i64(&" in component_count_body
+    assert "__rxtnx_is_connected_i64(py, &" in is_connected_body
     assert "__rxtnx_number_of_nodes_i64(&" in node_count_body
     assert "__rxtnx_number_of_edges_i64(&" in edge_count_body
     assert "__rxtnx_dijkstra_lengths_i64_f64(py, &" in dijkstra_body
@@ -253,6 +273,9 @@ def test_generated_source_owns_petgraph_and_constructs_once(project: CertifiedPr
     assert source.count("fn __rxtnx_weighted_edgelist_i64_f64_to_py") == 1
     assert source.count("fn __rxtnx_connected_components_i64") == 1
     assert source.count("fn __rxtnx_connected_components_graph_i64") == 1
+    assert source.count("fn __rxtnx_component_count_i64") == 1
+    assert source.count("fn __rxtnx_number_connected_components_i64") == 1
+    assert source.count("fn __rxtnx_is_connected_i64") == 1
     assert "wrap_pyfunction!(nx_traversal_app__kernels__resident_escape" not in source
 
 
@@ -586,6 +609,49 @@ def test_native_resident_components_matches_fallback_and_exact_reference(
     expected = list(nx.connected_components(graph))
     assert actual == expected
     assert all(type(component) is set for component in actual)
+    assert edges == before
+
+
+@pytest.mark.parametrize(
+    ("edges", "expected_count", "expected_connected"),
+    [
+        ([], 0, None),
+        ([(0, 1)], 1, True),
+        ([(0, 1), (1, 2), (10, 11)], 2, False),
+        ([(4, 1), (1, 4), (4, 4)], 1, True),
+        ([(-(2**63), 7), (2**63 - 1, 2**63 - 1)], 2, False),
+    ],
+)
+def test_native_connectivity_scalars_match_fallback_and_exact_reference(
+    project: CertifiedProject,
+    edges: list[tuple[int, int]],
+    expected_count: int,
+    expected_connected: bool | None,
+) -> None:
+    before = deepcopy(edges)
+    count = project.equivalence_checker(
+        "nx_traversal_app.kernels.number_connected_components_product",
+        args_equals=lambda left, right: left == right,
+    )(edges)
+    graph = nx.Graph()
+    graph.add_edges_from(edges)
+    assert type(count) is int
+    assert count == expected_count == nx.number_connected_components(graph)
+
+    checker = project.equivalence_checker("nx_traversal_app.kernels.is_connected_product")
+    if expected_connected is None:
+        native, fallback = _leg_error_signatures(checker, (edges,))
+        expected = (
+            nx.NetworkXPointlessConcept,
+            "Connectivity is undefined for the null graph.",
+            ("Connectivity is undefined for the null graph.",),
+        )
+        assert native == expected
+        assert fallback == expected
+    else:
+        connected = checker(edges)
+        assert type(connected) is bool
+        assert connected is expected_connected is nx.is_connected(graph)
     assert edges == before
 
 

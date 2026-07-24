@@ -27,6 +27,8 @@ from rextio_networkx import (
     dijkstra_path_lengths,
     graph_from_edgelist,
     has_path,
+    is_connected,
+    number_connected_components,
     number_of_edges,
     number_of_nodes,
     shortest_path_length,
@@ -60,6 +62,14 @@ def shortest_path_length_product(
 
 def components_product(edges: EdgeListI64) -> ComponentList:
     return connected_components(graph_from_edgelist(edges))
+
+
+def component_count_product(edges: EdgeListI64) -> int:
+    return number_connected_components(graph_from_edgelist(edges))
+
+
+def is_connected_product(edges: EdgeListI64) -> bool:
+    return is_connected(graph_from_edgelist(edges))
 
 
 def node_count_product(edges: EdgeListI64) -> int:
@@ -97,6 +107,8 @@ nx.single_source_shortest_path_length(G, source)
 nx.has_path(G, source, target)
 nx.shortest_path_length(G, source, target)
 list(nx.connected_components(G))
+nx.number_connected_components(G)
+nx.is_connected(G)
 G.number_of_nodes()
 G.number_of_edges()
 
@@ -130,6 +142,12 @@ nx.single_source_dijkstra_path_length(G, source, weight="weight")
 - `connected_components` borrows the resident graph and materializes the same
   ordered `list[set[int]]` as `list(nx.connected_components(G))`; component
   order follows first node insertion and each set retains exact integer values.
+- `number_connected_components` borrows the same resident graph and returns
+  the exact Python `int` from `nx.number_connected_components(G)`, including
+  `0` for the null edge-induced graph.
+- `is_connected` borrows the same resident graph and returns an exact Python
+  `bool`. The null edge-induced graph raises the exact NetworkX 3.5
+  `NetworkXPointlessConcept("Connectivity is undefined for the null graph.")`.
 - `number_of_nodes` and `number_of_edges` borrow the resident graph and return
   exact Python integers. Duplicate and reversed duplicate edges count once, a
   self-loop counts once, and the empty edge-induced graph reports zero nodes
