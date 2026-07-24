@@ -127,6 +127,24 @@ def number_of_edges(graph: GraphI64) -> int:
     return graph.number_of_edges()
 
 
+def number_connected_components(graph: GraphI64) -> int:
+    """Return the exact NetworkX 3.5 connected-component count."""
+    import networkx as nx
+
+    if type(graph) is not nx.Graph or not graph.graph.get("__rextio_networkx_graph_i64__", False):
+        raise TypeError("rextio-networkx: graph must be produced by graph_from_edgelist")
+    return nx.number_connected_components(graph)
+
+
+def is_connected(graph: GraphI64) -> bool:
+    """Return the exact NetworkX 3.5 connectivity predicate."""
+    import networkx as nx
+
+    if type(graph) is not nx.Graph or not graph.graph.get("__rextio_networkx_graph_i64__", False):
+        raise TypeError("rextio-networkx: graph must be produced by graph_from_edgelist")
+    return nx.is_connected(graph)
+
+
 def weighted_graph_from_edgelist(edges: WeightedEdgeListI64F64) -> WeightedGraphI64F64:
     """Build the exact weighted fallback graph used by the resident route."""
     import networkx as nx
@@ -228,6 +246,8 @@ __all__ = [
     "dijkstra_path_lengths",
     "graph_from_edgelist",
     "has_path",
+    "is_connected",
+    "number_connected_components",
     "number_of_edges",
     "number_of_nodes",
     "plugin",

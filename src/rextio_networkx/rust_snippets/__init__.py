@@ -12,6 +12,10 @@ from __future__ import annotations
 from rextio_networkx.rust_snippets.components import (
     cc_call_name,
     cc_helpers,
+    is_connected_call_name,
+    is_connected_helpers,
+    number_connected_components_call_name,
+    number_connected_components_helpers,
     resident_cc_call_name,
     resident_cc_helpers,
 )
@@ -40,6 +44,10 @@ __all__ = [
     "WEIGHTED_GRAPH_FROM_EDGELIST",
     "cc_call_name",
     "cc_helpers",
+    "is_connected_call_name",
+    "is_connected_helpers",
+    "number_connected_components_call_name",
+    "number_connected_components_helpers",
     "resident_cc_call_name",
     "resident_cc_helpers",
     "traversal_helpers",
