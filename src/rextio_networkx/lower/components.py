@@ -2,7 +2,7 @@
 
 from __future__ import annotations
 
-from rextio.plugins.api import ClaimSite, LoweredExpr, LoweringContext
+from rextio.plugins.api import ClaimExpr, ClaimLiteral, ClaimSite, LoweredExpr, LoweringContext
 
 from rextio_networkx import rust_snippets
 from rextio_networkx.claim.components import (
@@ -33,15 +33,41 @@ def _require_static_contract(
     trust boundary: they must not turn a caller-supplied rule or result type
     into Rust merely because its target happens to look familiar.
     """
+    operand_literals = claimed.operand_literals
+    literals_match = isinstance(operand_literals, tuple) and (
+        not operand_literals
+        or (
+            len(operand_literals) == len(operand_types)
+            and all(
+                isinstance(literal, ClaimLiteral)
+                and not literal.is_literal
+                and literal.value is None
+                for literal in operand_literals
+            )
+        )
+    )
+    expression = claimed.expression
+    expression_matches = expression is None or (
+        isinstance(expression, ClaimExpr)
+        and expression.kind == claimed.kind
+        and expression.target == claimed.target
+        and expression.result_type == claimed.result_type
+    )
     if (
         claimed.kind != "call"
         or claimed.target != target
         or claimed.rule_id != rule_id
         or claimed.result_type != result_type
         or claimed.operand_types != operand_types
+        or not literals_match
         or claimed.keywords
+        or claimed.callables
+        or not expression_matches
         or claimed.receiver is not None
-        or ctx.receiver is not None
+        or getattr(ctx, "receiver", None) is not None
+        or ctx.target_language != "rust"
+        or getattr(ctx, "backend", "pyo3") != "pyo3"
+        or getattr(ctx, "leaf_operands", ()) != ()
     ):
         raise ValueError(
             f"rextio-networkx connected-components lowering contract mismatch for {target!r}"

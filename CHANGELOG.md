@@ -50,6 +50,9 @@ Changelog and Semantic Versioning conventions.
 - Host checks now accept plugin API 1.3 and later 1.x minor versions while the
   provider itself remains API 1.3 and advertises no artifact capability.
 - CI tests the released Rextio 0.1.3 and 0.1.5 hosts on `main` and `0.1.1`.
+- Connected-component lowerers now revalidate literal, callable, expression,
+  backend, and operand-routing metadata at the plugin trust boundary and fail
+  closed on forged or inconsistent claim contexts.
 
 ## [0.1.0] - 2026-07-17
 
