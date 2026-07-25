@@ -3,7 +3,11 @@
 All notable changes to `rextio-networkx` are documented here following Keep a
 Changelog and Semantic Versioning conventions.
 
-## [0.1.1] - Unreleased
+## [0.1.1] - 2026-07-26
+
+Public Alpha release on PyPI. The release preserves the exact typed-adapter
+boundary and the historical benchmark scope while extending resident graph
+queries.
 
 ### Added
 
@@ -137,11 +141,3 @@ claimed for native lowering. Raw NetworkX spellings stay fallback-only.
 - Bool/int-subclass coercion, out-of-i64 extraction, tuple indexing before arity
   validation, and invalid overwritten weighted duplicates now fail closed with
   stable documented Python exceptions in both execution modes.
-
-## [Unreleased]
-
-### Added
-
-### Changed
-
-### Security

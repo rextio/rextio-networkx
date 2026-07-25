@@ -3,6 +3,10 @@
 A **public alpha** Rextio plugin for exact, deliberately narrow NetworkX 3.5
 routes on real `petgraph::UnGraph` resident values.
 
+Version **0.1.1** was released on **2026-07-26**. It expands the resident
+shortest-path, component, connectivity, and graph-count query surface without
+claiming raw NetworkX spellings or unsupported graph families.
+
 Requires **Rextio** `>=0.1.3,<0.2` (plugin API **1.3**). Install from PyPI as
 `rextio-networkx`. Repository: [rextio/rextio-networkx](https://github.com/rextio/rextio-networkx).
 
