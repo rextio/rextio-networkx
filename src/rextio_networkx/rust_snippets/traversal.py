@@ -5,6 +5,11 @@ from __future__ import annotations
 GRAPH_FROM_EDGELIST = "__rxtnx_graph_from_edgelist_i64"
 WEIGHTED_GRAPH_FROM_EDGELIST = "__rxtnx_weighted_graph_from_edgelist_i64_f64"
 BFS_EDGES = "__rxtnx_bfs_edges_i64"
+SHORTEST_PATH_LENGTHS = "__rxtnx_single_source_shortest_path_lengths_i64"
+HAS_PATH = "__rxtnx_has_path_i64"
+SHORTEST_PATH_LENGTH = "__rxtnx_shortest_path_length_i64"
+NUMBER_OF_NODES = "__rxtnx_number_of_nodes_i64"
+NUMBER_OF_EDGES = "__rxtnx_number_of_edges_i64"
 DIJKSTRA_LENGTHS = "__rxtnx_dijkstra_lengths_i64_f64"
 
 
@@ -66,12 +71,13 @@ def exact_i64_helper() -> str:
 
 
 def source_parser_helper() -> str:
-    """Define the strict NodeI64 parameter conversion."""
+    """Define strict NodeI64 conversion with the rendered parameter label."""
     return r"""fn __rxtnx_parse_source_i64(
     _py: pyo3::Python<'_>,
     value: &pyo3::Bound<'_, pyo3::types::PyAny>,
+    location: &str,
 ) -> pyo3::PyResult<i64> {
-    __rxtnx_parse_exact_i64(value, "source")
+    __rxtnx_parse_exact_i64(value, location)
 }"""
 
 
@@ -397,6 +403,190 @@ def bfs_helper() -> str:
 }"""
 
 
+def shortest_path_lengths_helper() -> str:
+    """Define source-first, discovery-ordered unweighted shortest-path lengths."""
+    return r"""fn __rxtnx_single_source_shortest_path_lengths_i64<'py>(
+    py: pyo3::Python<'py>,
+    graph: &RxtNxGraphI64,
+    source: i64,
+) -> pyo3::PyResult<pyo3::Bound<'py, pyo3::types::PyDict>> {
+    use pyo3::types::PyDictMethods;
+    use std::collections::VecDeque;
+
+    let Some(&source_node) = graph.index_of.get(&source) else {
+        return Err(__rxtnx_networkx_exception(
+            py,
+            "NodeNotFound",
+            format!("Source {} is not in G", source),
+        )?);
+    };
+    let result = pyo3::types::PyDict::new(py);
+    let mut distances: Vec<Option<i64>> = vec![None; graph.graph.node_count()];
+    let mut queue = VecDeque::new();
+    distances[source_node.index()] = Some(0);
+    result.set_item(graph.graph[source_node], 0_i64)?;
+    queue.push_back(source_node);
+
+    while let Some(parent) = queue.pop_front() {
+        let parent_distance = distances[parent.index()].ok_or_else(|| {
+            pyo3::exceptions::PyRuntimeError::new_err(
+                "rextio-networkx: internal BFS distance is missing",
+            )
+        })?;
+        let child_distance = parent_distance.checked_add(1).ok_or_else(|| {
+            pyo3::exceptions::PyOverflowError::new_err(
+                "rextio-networkx: shortest-path distance is outside signed-i64 range",
+            )
+        })?;
+        for &child in &graph.adjacency_order[parent.index()] {
+            if distances[child.index()].is_none() {
+                distances[child.index()] = Some(child_distance);
+                result.set_item(graph.graph[child], child_distance)?;
+                queue.push_back(child);
+            }
+        }
+    }
+    Ok(result)
+}"""
+
+
+def has_path_helper() -> str:
+    """Define exact unweighted NetworkX 3.5 ``has_path`` semantics."""
+    return r"""fn __rxtnx_has_path_i64(
+    py: pyo3::Python<'_>,
+    graph: &RxtNxGraphI64,
+    source: i64,
+    target: i64,
+) -> pyo3::PyResult<bool> {
+    use std::collections::VecDeque;
+
+    let Some(&source_node) = graph.index_of.get(&source) else {
+        return Err(__rxtnx_networkx_exception(
+            py,
+            "NodeNotFound",
+            format!("Source {} is not in G", source),
+        )?);
+    };
+    let Some(&target_node) = graph.index_of.get(&target) else {
+        return Err(__rxtnx_networkx_exception(
+            py,
+            "NodeNotFound",
+            format!("Target {} is not in G", target),
+        )?);
+    };
+    if source_node == target_node {
+        return Ok(true);
+    }
+
+    let mut visited = vec![false; graph.graph.node_count()];
+    let mut queue = VecDeque::new();
+    visited[source_node.index()] = true;
+    queue.push_back(source_node);
+
+    while let Some(parent) = queue.pop_front() {
+        for &child in &graph.adjacency_order[parent.index()] {
+            if child == target_node {
+                return Ok(true);
+            }
+            if !visited[child.index()] {
+                visited[child.index()] = true;
+                queue.push_back(child);
+            }
+        }
+    }
+    Ok(false)
+}"""
+
+
+def shortest_path_length_helper() -> str:
+    """Define exact unweighted NetworkX 3.5 source-target path length."""
+    return r"""fn __rxtnx_shortest_path_length_i64(
+    py: pyo3::Python<'_>,
+    graph: &RxtNxGraphI64,
+    source: i64,
+    target: i64,
+) -> pyo3::PyResult<i64> {
+    use std::collections::VecDeque;
+
+    let Some(&source_node) = graph.index_of.get(&source) else {
+        return Err(__rxtnx_networkx_exception(
+            py,
+            "NodeNotFound",
+            format!("Source {} is not in G", source),
+        )?);
+    };
+    let Some(&target_node) = graph.index_of.get(&target) else {
+        return Err(__rxtnx_networkx_exception(
+            py,
+            "NodeNotFound",
+            format!("Target {} is not in G", target),
+        )?);
+    };
+    if source_node == target_node {
+        return Ok(0);
+    }
+
+    let mut distances: Vec<Option<i64>> = vec![None; graph.graph.node_count()];
+    let mut queue = VecDeque::new();
+    distances[source_node.index()] = Some(0);
+    queue.push_back(source_node);
+
+    while let Some(parent) = queue.pop_front() {
+        let parent_distance = distances[parent.index()].ok_or_else(|| {
+            pyo3::exceptions::PyRuntimeError::new_err(
+                "rextio-networkx: internal BFS distance is missing",
+            )
+        })?;
+        let child_distance = parent_distance.checked_add(1).ok_or_else(|| {
+            pyo3::exceptions::PyOverflowError::new_err(
+                "rextio-networkx: shortest-path distance is outside signed-i64 range",
+            )
+        })?;
+        for &child in &graph.adjacency_order[parent.index()] {
+            if distances[child.index()].is_none() {
+                if child == target_node {
+                    return Ok(child_distance);
+                }
+                distances[child.index()] = Some(child_distance);
+                queue.push_back(child);
+            }
+        }
+    }
+
+    Err(__rxtnx_networkx_exception(
+        py,
+        "NetworkXNoPath",
+        format!("No path between {} and {}.", source, target),
+    )?)
+}"""
+
+
+def number_of_nodes_helper() -> str:
+    """Define an exact checked resident node-count query."""
+    return r"""fn __rxtnx_number_of_nodes_i64(
+    graph: &RxtNxGraphI64,
+) -> pyo3::PyResult<i64> {
+    i64::try_from(graph.graph.node_count()).map_err(|_| {
+        pyo3::exceptions::PyOverflowError::new_err(
+            "rextio-networkx: node count is outside signed-i64 range",
+        )
+    })
+}"""
+
+
+def number_of_edges_helper() -> str:
+    """Define an exact checked resident edge-count query."""
+    return r"""fn __rxtnx_number_of_edges_i64(
+    graph: &RxtNxGraphI64,
+) -> pyo3::PyResult<i64> {
+    i64::try_from(graph.graph.edge_count()).map_err(|_| {
+        pyo3::exceptions::PyOverflowError::new_err(
+            "rextio-networkx: edge count is outside signed-i64 range",
+        )
+    })
+}"""
+
+
 def dijkstra_helper() -> str:
     """Define counter-ordered Dijkstra and exact Python result materialization."""
     return r"""#[derive(Clone, Copy)]
@@ -558,6 +748,46 @@ def bfs_helpers() -> tuple[str, ...]:
     )
 
 
+def shortest_path_lengths_helpers() -> tuple[str, ...]:
+    """Return exact support needed by the unweighted distance consumer claim."""
+    return (
+        *node_type_helpers(),
+        *graph_type_helpers(),
+        networkx_exception_helper(),
+        shortest_path_lengths_helper(),
+    )
+
+
+def has_path_helpers() -> tuple[str, ...]:
+    """Return exact support needed by the resident boolean consumer claim."""
+    return (
+        *node_type_helpers(),
+        *graph_type_helpers(),
+        networkx_exception_helper(),
+        has_path_helper(),
+    )
+
+
+def shortest_path_length_helpers() -> tuple[str, ...]:
+    """Return exact support needed by the source-target distance claim."""
+    return (
+        *node_type_helpers(),
+        *graph_type_helpers(),
+        networkx_exception_helper(),
+        shortest_path_length_helper(),
+    )
+
+
+def number_of_nodes_helpers() -> tuple[str, ...]:
+    """Return exact support needed by the resident node-count claim."""
+    return (*graph_type_helpers(), number_of_nodes_helper())
+
+
+def number_of_edges_helpers() -> tuple[str, ...]:
+    """Return exact support needed by the resident edge-count claim."""
+    return (*graph_type_helpers(), number_of_edges_helper())
+
+
 def dijkstra_helpers() -> tuple[str, ...]:
     """Return exact support needed by a Dijkstra consumer claim."""
     return (
@@ -585,6 +815,11 @@ def traversal_helpers() -> tuple[str, ...]:
         weighted_graph_constructor_helper(),
         networkx_exception_helper(),
         bfs_helper(),
+        shortest_path_lengths_helper(),
+        has_path_helper(),
+        shortest_path_length_helper(),
+        number_of_nodes_helper(),
+        number_of_edges_helper(),
         dijkstra_helper(),
     )
 
@@ -596,6 +831,11 @@ def traversal_support() -> str:
 
 __all__ = [
     "BFS_EDGES",
+    "SHORTEST_PATH_LENGTHS",
+    "SHORTEST_PATH_LENGTH",
+    "NUMBER_OF_EDGES",
+    "NUMBER_OF_NODES",
+    "HAS_PATH",
     "DIJKSTRA_LENGTHS",
     "GRAPH_FROM_EDGELIST",
     "WEIGHTED_GRAPH_FROM_EDGELIST",
@@ -604,7 +844,12 @@ __all__ = [
     "edge_list_type_helpers",
     "graph_constructor_helpers",
     "graph_type_helpers",
+    "has_path_helpers",
     "node_type_helpers",
+    "shortest_path_lengths_helpers",
+    "shortest_path_length_helpers",
+    "number_of_edges_helpers",
+    "number_of_nodes_helpers",
     "traversal_helpers",
     "traversal_support",
     "weighted_edge_list_type_helpers",

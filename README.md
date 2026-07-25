@@ -3,6 +3,10 @@
 A **public alpha** Rextio plugin for exact, deliberately narrow NetworkX 3.5
 routes on real `petgraph::UnGraph` resident values.
 
+Version **0.1.1** was released on **2026-07-26**. It expands the resident
+shortest-path, component, connectivity, and graph-count query surface without
+claiming raw NetworkX spellings or unsupported graph families.
+
 Requires **Rextio** `>=0.1.3,<0.2` (plugin API **1.3**). Install from PyPI as
 `rextio-networkx`. Repository: [rextio/rextio-networkx](https://github.com/rextio/rextio-networkx).
 
@@ -16,19 +20,68 @@ The public proof shapes are:
 ```python
 from rextio_networkx import (
     BfsEdgesI64,
+    ComponentList,
     DijkstraLengthsI64,
     EdgeListI64,
     NodeI64,
+    ShortestPathLengthsI64,
     WeightedEdgeListI64F64,
     bfs_edges,
+    connected_components,
     dijkstra_path_lengths,
     graph_from_edgelist,
+    has_path,
+    is_connected,
+    number_connected_components,
+    number_of_edges,
+    number_of_nodes,
+    shortest_path_length,
+    single_source_shortest_path_lengths,
     weighted_graph_from_edgelist,
 )
 
 
 def bfs_product(edges: EdgeListI64, source: NodeI64) -> BfsEdgesI64:
     return bfs_edges(graph_from_edgelist(edges), source)
+
+
+def shortest_path_lengths_product(
+    edges: EdgeListI64,
+    source: NodeI64,
+) -> ShortestPathLengthsI64:
+    return single_source_shortest_path_lengths(graph_from_edgelist(edges), source)
+
+
+def has_path_product(edges: EdgeListI64, source: NodeI64, target: NodeI64) -> bool:
+    return has_path(graph_from_edgelist(edges), source, target)
+
+
+def shortest_path_length_product(
+    edges: EdgeListI64,
+    source: NodeI64,
+    target: NodeI64,
+) -> int:
+    return shortest_path_length(graph_from_edgelist(edges), source, target)
+
+
+def components_product(edges: EdgeListI64) -> ComponentList:
+    return connected_components(graph_from_edgelist(edges))
+
+
+def component_count_product(edges: EdgeListI64) -> int:
+    return number_connected_components(graph_from_edgelist(edges))
+
+
+def is_connected_product(edges: EdgeListI64) -> bool:
+    return is_connected(graph_from_edgelist(edges))
+
+
+def node_count_product(edges: EdgeListI64) -> int:
+    return number_of_nodes(graph_from_edgelist(edges))
+
+
+def edge_count_product(edges: EdgeListI64) -> int:
+    return number_of_edges(graph_from_edgelist(edges))
 
 
 def dijkstra_product(
@@ -43,8 +96,8 @@ def dijkstra_product(
 
 The constructor result is an opaque plugin-owned resident graph
 (`PluginType(conversion=None)`). Native code owns a real `petgraph::UnGraph`
-and an insertion-order sidecar; the consumer borrows it. Only the final
-`list[tuple[int, int]]` or ordered Python `dict` crosses back to Python. A
+and an insertion-order sidecar; the consumer borrows it. Only a final
+materialized list/dict/set collection or scalar crosses back to Python. A
 resident value cannot be returned to Python or sent through a materialized
 Python consumer (`RXT092`), and it cannot persist across wrapper calls.
 
@@ -54,6 +107,14 @@ The fallback legs execute these exact NetworkX 3.5 constructions:
 G = nx.Graph()
 G.add_edges_from(edges)
 list(nx.bfs_edges(G, source))
+nx.single_source_shortest_path_length(G, source)
+nx.has_path(G, source, target)
+nx.shortest_path_length(G, source, target)
+list(nx.connected_components(G))
+nx.number_connected_components(G)
+nx.is_connected(G)
+G.number_of_nodes()
+G.number_of_edges()
 
 G = nx.Graph()
 G.add_weighted_edges_from(edges)
@@ -70,6 +131,31 @@ nx.single_source_dijkstra_path_length(G, source, weight="weight")
   wins exactly as in `nx.Graph`.
 - BFS uses the preserved neighbor order and returns the exact ordered concrete
   `list[tuple[int, int]]`.
+- `single_source_shortest_path_lengths` uses the same ordered BFS and returns
+  the exact source-first `dict[int, int]` discovery order of
+  `nx.single_source_shortest_path_length`; its source is always integer `0`.
+- `has_path` borrows the same resident unweighted graph, returns an exact Python
+  `bool`, and performs ordered BFS with early success. It accepts only typed
+  `GraphI64, NodeI64, NodeI64` positional arguments; source membership is
+  checked before target membership, matching NetworkX 3.5's exact
+  `NodeNotFound` class, message, and `args`.
+- `shortest_path_length` uses the same source-before-target membership
+  precedence and returns an exact Python `int`, including `0` when source and
+  target are equal. A disconnected pair raises the exact NetworkX 3.5
+  `NetworkXNoPath("No path between X and Y.")`.
+- `connected_components` borrows the resident graph and materializes the same
+  ordered `list[set[int]]` as `list(nx.connected_components(G))`; component
+  order follows first node insertion and each set retains exact integer values.
+- `number_connected_components` borrows the same resident graph and returns
+  the exact Python `int` from `nx.number_connected_components(G)`, including
+  `0` for the null edge-induced graph.
+- `is_connected` borrows the same resident graph and returns an exact Python
+  `bool`. The null edge-induced graph raises the exact NetworkX 3.5
+  `NetworkXPointlessConcept("Connectivity is undefined for the null graph.")`.
+- `number_of_nodes` and `number_of_edges` borrow the resident graph and return
+  exact Python integers. Duplicate and reversed duplicate edges count once, a
+  self-loop counts once, and the empty edge-induced graph reports zero nodes
+  and zero edges.
 - Dijkstra uses `(distance, monotonic discovery counter, node)` heap semantics,
   inserts keys when finalized, ignores equal-distance rediscovery, skips stale
   entries, supports cumulative `+inf`, and can decrease a previously discovered
@@ -78,11 +164,17 @@ nx.single_source_dijkstra_path_length(G, source, weight="weight")
   value is a Python `float`. Tests compare ordered `list(result.items())`,
   exact key/value types, and float `hex()` values.
 - Missing BFS source raises `networkx.NetworkXError("The node X is not in the
-  graph.")`. Missing Dijkstra source raises
-  `networkx.NodeNotFound("Node X not found in graph")`.
+  graph.")`. Missing shortest-path-lengths source raises
+  `networkx.NodeNotFound("Source X is not in G")`; missing Dijkstra source
+  raises `networkx.NodeNotFound("Node X not found in graph")`.
+  `has_path` raises `networkx.NodeNotFound("Source X is not in G")` for a
+  missing source before it considers the target, and
+  `networkx.NodeNotFound("Target X is not in G")` for a missing target.
+  `shortest_path_length` preserves that precedence and those messages.
 
-The typed `connected_components_from_edgelist` route remains available and
-shares the strict raw edge parser and ordered petgraph constructor.
+The typed `connected_components_from_edgelist` route remains available. It
+shares the strict raw edge parser, ordered petgraph constructor, and component
+materializer with the resident `connected_components(GraphI64)` route.
 
 API 1.3 type-level support is explicit and granular. `NodeI64`, both edge-list
 types, and both resident graph types own the exact Rust helpers referenced by
@@ -103,7 +195,7 @@ match exception class, `str(e)`, and one-string `e.args`.
 - edge container: exact `list` only
 - unweighted occurrence: exact 2-`tuple`
 - weighted occurrence: exact 3-`tuple`
-- nodes/source: exact Python `int` (not `bool` or a subclass), signed-i64 range
+- nodes/source/target: exact Python `int` (not `bool` or a subclass), signed-i64 range
 - weight: exact Python `float` (not `int`, `bool`, or subclass), finite and
   non-negative; `-0.0` is accepted
 
@@ -114,7 +206,7 @@ objects are never mutated.
 A recognized traversal target with wrong arity, keywords/options, a plain core
 `int` instead of `NodeI64`, wrong resident type, or missing/unresolved required
 plugin annotation is rejected statically as `RXTP-NETWORKX-020`. Directed and
-multigraph inputs, object/mixed labels, target/depth/cutoff/weight options, and
+multigraph inputs, object/mixed labels, depth/cutoff/weight/method options, and
 raw NetworkX spellings are outside this surface and remain fallback-only.
 
 Raw NetworkX APIs such as `networkx.from_edgelist` and

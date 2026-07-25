@@ -8,21 +8,40 @@ value equivalence is certified under Cargo in ``tests/e2e``.
 
 from __future__ import annotations
 
+import os
+import subprocess
+import sys
+from dataclasses import replace
+from pathlib import Path
+
 import pytest
 
 from rextio.plugins.api import (
+    CallableMeta,
     Claimed,
+    ClaimExpr,
+    ClaimLiteral,
     ClaimSite,
     KeywordArg,
     LoweringContext,
     NotCovered,
+    ReceiverMeta,
     Rejected,
 )
 
 import rextio_networkx as rn
 from rextio_networkx.claim import claim
-from rextio_networkx.claim.components import CC_RULE, CC_TARGET
-from rextio_networkx.diagnostics import COMPONENT_LIST, EDGELIST_I64
+from rextio_networkx.claim.components import (
+    CC_RULE,
+    CC_TARGET,
+    IS_CONNECTED_RULE,
+    IS_CONNECTED_TARGET,
+    NUMBER_CONNECTED_COMPONENTS_RULE,
+    NUMBER_CONNECTED_COMPONENTS_TARGET,
+    RESIDENT_CC_RULE,
+    RESIDENT_CC_TARGET,
+)
+from rextio_networkx.diagnostics import COMPONENT_LIST, EDGELIST_I64, GRAPH_I64
 from rextio_networkx.lower import lower
 from rextio_networkx.plugin_types import plugin_type_keys
 
@@ -203,3 +222,233 @@ def test_lower_wrong_target_returns_none_via_router_error() -> None:
 def test_lower_fails_closed_on_wrong_operand_count() -> None:
     with pytest.raises(ValueError, match="exactly one operand"):
         lower(_claimed_site(), _ctx(operands=("a", "b")))
+
+
+@pytest.mark.parametrize(
+    "forged",
+    [
+        lambda site: replace(site, kind="binop"),
+        lambda site: replace(site, target="rextio_networkx.graph_from_edgelist"),
+        lambda site: replace(site, rule_id="rextio-networkx/forged"),
+        lambda site: replace(site, result_type="rextio-networkx/forged"),
+        lambda site: replace(site, operand_types=("rextio-networkx/forged",)),
+        lambda site: replace(site, keywords=(KeywordArg(name="copy"),)),
+        lambda site: replace(
+            site,
+            receiver=ReceiverMeta(arg_type="object", expr_kind="name", is_safe=True),
+        ),
+    ],
+    ids=["kind", "target", "rule", "result", "operand-types", "keywords", "receiver"],
+)
+def test_lower_rejects_forged_claim_metadata(forged) -> None:
+    """Lowering must independently enforce every static call-shape invariant."""
+    with pytest.raises(ValueError):
+        lower(forged(_claimed_site()), _ctx())
+
+
+def test_lower_rejects_forged_context_receiver() -> None:
+    with pytest.raises(ValueError, match="lowering contract mismatch"):
+        lower(_claimed_site(), replace(_ctx(), receiver="edges"))
+
+
+_COMPONENT_LOWERING_LANES = (
+    (CC_TARGET, CC_RULE, COMPONENT_LIST, EDGELIST_I64),
+    (RESIDENT_CC_TARGET, RESIDENT_CC_RULE, COMPONENT_LIST, GRAPH_I64),
+    (
+        NUMBER_CONNECTED_COMPONENTS_TARGET,
+        NUMBER_CONNECTED_COMPONENTS_RULE,
+        "int",
+        GRAPH_I64,
+    ),
+    (IS_CONNECTED_TARGET, IS_CONNECTED_RULE, "bool", GRAPH_I64),
+)
+
+
+def _component_lane_site(
+    target: str,
+    rule_id: str,
+    result_type: str,
+    operand_type: str,
+) -> ClaimSite:
+    return ClaimSite(
+        kind="call",
+        target=target,
+        operand_types=(operand_type,),
+        file_path="",
+        line=0,
+        column=0,
+        rule_id=rule_id,
+        result_type=result_type,
+    )
+
+
+def _matching_call_expression(site: ClaimSite) -> ClaimExpr:
+    return ClaimExpr(
+        kind="call",
+        target=site.target,
+        result_type=site.result_type,
+        children=(
+            ClaimExpr(
+                kind="leaf",
+                result_type=site.operand_types[0],
+                leaf_index=0,
+                leaf_kind="name",
+            ),
+        ),
+    )
+
+
+@pytest.mark.parametrize(
+    ("target", "rule_id", "result_type", "operand_type"),
+    _COMPONENT_LOWERING_LANES,
+)
+def test_component_lanes_accept_aligned_nonliteral_and_matching_expression_metadata(
+    target: str,
+    rule_id: str,
+    result_type: str,
+    operand_type: str,
+) -> None:
+    site = _component_lane_site(target, rule_id, result_type, operand_type)
+    site = replace(
+        site,
+        operand_literals=(ClaimLiteral(),),
+        expression=_matching_call_expression(site),
+    )
+
+    assert lower(site, _ctx()).rust
+
+
+@pytest.mark.parametrize(
+    ("target", "rule_id", "result_type", "operand_type"),
+    _COMPONENT_LOWERING_LANES,
+)
+@pytest.mark.parametrize(
+    "forge",
+    [
+        lambda site: replace(
+            site,
+            operand_literals=(ClaimLiteral(is_literal=True, value=0),),
+        ),
+        lambda site: replace(
+            site,
+            operand_literals=(ClaimLiteral(), ClaimLiteral()),
+        ),
+        lambda site: replace(
+            site,
+            callables=(CallableMeta(arg_index=0, qualname="app.callback"),),
+        ),
+        lambda site: replace(
+            site,
+            expression=ClaimExpr(
+                kind="binop",
+                target="+",
+                result_type=site.result_type,
+                children=(
+                    ClaimExpr(kind="leaf", leaf_index=0, leaf_kind="name"),
+                    ClaimExpr(kind="leaf", leaf_index=1, leaf_kind="name"),
+                ),
+            ),
+        ),
+        lambda site: replace(
+            site,
+            expression=ClaimExpr(
+                kind="call",
+                target="rextio_networkx.forged",
+                result_type=site.result_type,
+            ),
+        ),
+        lambda site: replace(
+            site,
+            expression=ClaimExpr(
+                kind="call",
+                target=site.target,
+                result_type="rextio-networkx/forged",
+            ),
+        ),
+    ],
+    ids=[
+        "literal-operand",
+        "misaligned-operand-literals",
+        "callable",
+        "expression-kind",
+        "expression-target",
+        "expression-result",
+    ],
+)
+def test_component_lanes_reject_extended_forged_claim_metadata(
+    target: str,
+    rule_id: str,
+    result_type: str,
+    operand_type: str,
+    forge,
+) -> None:
+    site = _component_lane_site(target, rule_id, result_type, operand_type)
+
+    with pytest.raises(ValueError, match="lowering contract mismatch"):
+        lower(forge(site), _ctx())
+
+
+def _with_forged_backend(ctx: LoweringContext) -> LoweringContext:
+    object.__setattr__(ctx, "backend", "standalone-rust")
+    return ctx
+
+
+@pytest.mark.parametrize(
+    ("target", "rule_id", "result_type", "operand_type"),
+    _COMPONENT_LOWERING_LANES,
+)
+@pytest.mark.parametrize(
+    "forge",
+    [
+        lambda ctx: replace(ctx, target_language="python"),
+        lambda ctx: _with_forged_backend(ctx),
+        lambda ctx: replace(ctx, leaf_operands=("forged",)),
+    ],
+    ids=["target-language", "backend", "leaf-operands"],
+)
+def test_component_lanes_reject_forged_lowering_context(
+    target: str,
+    rule_id: str,
+    result_type: str,
+    operand_type: str,
+    forge,
+) -> None:
+    site = _component_lane_site(target, rule_id, result_type, operand_type)
+
+    with pytest.raises(ValueError, match="lowering contract mismatch"):
+        lower(site, forge(_ctx()))
+
+
+def test_component_extended_contract_survives_optimized_interpreter() -> None:
+    program = (
+        "from rextio.plugins.api import ClaimLiteral, ClaimSite, LoweringContext\n"
+        "from rextio_networkx.claim.components import CC_RULE, CC_TARGET\n"
+        "from rextio_networkx.diagnostics import COMPONENT_LIST, EDGELIST_I64\n"
+        "from rextio_networkx.lower import lower\n"
+        "site = ClaimSite(kind='call', target=CC_TARGET, operand_types=(EDGELIST_I64,), "
+        "file_path='', line=0, column=0, rule_id=CC_RULE, result_type=COMPONENT_LIST, "
+        "operand_literals=(ClaimLiteral(is_literal=True, value=0),))\n"
+        "ctx = LoweringContext(operands=('edges',), target_language='rust', fresh_name=str)\n"
+        "try:\n"
+        "    lower(site, ctx)\n"
+        "except ValueError:\n"
+        "    print('guard-fired')\n"
+        "else:\n"
+        "    raise SystemExit('extended metadata guard did not fire under -O')\n"
+    )
+    completed = subprocess.run(
+        [sys.executable, "-O", "-c", program],
+        capture_output=True,
+        text=True,
+        check=True,
+        env={
+            **os.environ,
+            "PYTHONPATH": os.pathsep.join(
+                [
+                    str(Path(__file__).parents[1] / "src"),
+                    os.environ.get("PYTHONPATH", ""),
+                ]
+            ),
+        },
+    )
+    assert "guard-fired" in completed.stdout

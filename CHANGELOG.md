@@ -3,6 +3,62 @@
 All notable changes to `rextio-networkx` are documented here following Keep a
 Changelog and Semantic Versioning conventions.
 
+## [0.1.1] - 2026-07-26
+
+Public Alpha release on PyPI. The release preserves the exact typed-adapter
+boundary and the historical benchmark scope while extending resident graph
+queries.
+
+### Added
+
+- Typed `single_source_shortest_path_lengths(GraphI64, NodeI64) ->
+  ShortestPathLengthsI64` adapter. It lowers only the exact no-option typed
+  spelling and uses the resident unweighted `petgraph::UnGraph` plus ordered
+  adjacency sidecar to match `nx.single_source_shortest_path_length` source-
+  first dictionary insertion and BFS discovery order.
+- Typed `has_path(GraphI64, NodeI64, NodeI64) -> bool` adapter. It lowers only
+  the exact no-option typed spelling, borrows the resident unweighted graph,
+  and matches NetworkX 3.5 connected/disconnected and source-before-target
+  missing-endpoint semantics.
+- Typed `shortest_path_length(GraphI64, NodeI64, NodeI64) -> int` adapter. Its
+  resident BFS returns the exact unweighted distance, checks a missing source
+  before a missing target, and preserves NetworkX 3.5 `NodeNotFound` and
+  disconnected `NetworkXNoPath` class, message, and arguments.
+- Real-Cargo evidence that one `GraphI64` construction can be shared-borrowed
+  by both `has_path` and `single_source_shortest_path_lengths` without cloning,
+  graph rematerialization, or a Python boundary round-trip.
+- Typed `connected_components(GraphI64) -> ComponentList` resident consumer.
+  It shares the exact ordered component materializer with the retained
+  `connected_components_from_edgelist` route, borrows the existing graph, and
+  emits the shared Rust helper once when both routes coexist.
+- Typed `number_of_nodes(GraphI64) -> int` and
+  `number_of_edges(GraphI64) -> int` scalar resident queries. Both use checked
+  `usize`-to-`i64` conversion; edge counts preserve NetworkX deduplication and
+  count each self-loop once, while an empty edge-induced graph returns zero.
+- Typed `number_connected_components(GraphI64) -> int` and
+  `is_connected(GraphI64) -> bool` resident scalar queries. Both reuse the
+  resident unweighted component walk without materializing Python components;
+  the count returns zero for the null graph, while connectivity preserves
+  NetworkX 3.5's exact `NetworkXPointlessConcept` class, message, and args for
+  that graph.
+- Focused fallback/claim/lowering and real-Cargo certification coverage for
+  diamonds, duplicate and reversed edges, self-loops, disconnected graphs,
+  non-contiguous signed-i64 labels, exact missing-source `NodeNotFound`, and
+  input immutability.
+- Native-vs-fallback real-Cargo coverage for `has_path`, including
+  connected/disconnected, self-loop, duplicate, signed-i64-bound, and exact
+  missing-source/missing-target `NodeNotFound` class/message/args cases.
+
+### Changed
+
+- Host checks now accept plugin API 1.3 and later 1.x minor versions while the
+  provider itself remains API 1.3 and advertises no artifact capability.
+- CI retains released Rextio 0.1.3 and 0.1.5 compatibility lanes and tests the
+  current public `rextio==0.1.6` release.
+- Connected-component lowerers now revalidate literal, callable, expression,
+  backend, and operand-routing metadata at the plugin trust boundary and fail
+  closed on forged or inconsistent claim contexts.
+
 ## [0.1.0] - 2026-07-17
 
 First public alpha release of `rextio-networkx` on PyPI. The supported surface
@@ -86,11 +142,3 @@ claimed for native lowering. Raw NetworkX spellings stay fallback-only.
 - Bool/int-subclass coercion, out-of-i64 extraction, tuple indexing before arity
   validation, and invalid overwritten weighted duplicates now fail closed with
   stable documented Python exceptions in both execution modes.
-
-## [Unreleased]
-
-### Added
-
-### Changed
-
-### Security

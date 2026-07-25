@@ -62,3 +62,21 @@ Four nodes is the smallest measured input. These results make no performance
 or break-even claim below 4 nodes, outside the measured 4–2048 matrix, or
 beyond the exact signed-i64 / finite-f64 adapter contracts and recorded graph
 families.
+
+## 0.1.1 shortest-path-lengths smoke scope
+
+The 0.1.1 `single_source_shortest_path_lengths` route is covered by focused
+native/fallback route and provenance checks, not by the checked-in performance
+matrix. It therefore carries **no speedup or break-even claim** until a new
+recorded product benchmark includes that exact adapter.
+
+Run its non-timed generated-wrapper route/provenance smoke with:
+
+```bash
+.venv/bin/python benchmarks/bench_product_routes.py --route-smoke \
+  --output-dir /tmp/rextio-networkx-shortest-path-lengths-smoke
+```
+
+The emitted `shortest-path-lengths-smoke.json` records plugin/core/toolchain
+provenance plus accepted native routes and explicitly states that it makes no
+performance claim.

@@ -40,11 +40,13 @@ from rextio_networkx import (
     DijkstraLengthsI64,
     EdgeListI64,
     NodeI64,
+    ShortestPathLengthsI64,
     WeightedEdgeListI64F64,
     bfs_edges,
     connected_components_from_edgelist,
     dijkstra_path_lengths,
     graph_from_edgelist,
+    single_source_shortest_path_lengths,
     weighted_graph_from_edgelist,
 )
 
@@ -55,6 +57,13 @@ def components_product(edges: EdgeListI64) -> ComponentList:
 
 def bfs_product(edges: EdgeListI64, source: NodeI64) -> BfsEdgesI64:
     return bfs_edges(graph_from_edgelist(edges), source)
+
+
+def shortest_path_lengths_product(
+    edges: EdgeListI64,
+    source: NodeI64,
+) -> ShortestPathLengthsI64:
+    return single_source_shortest_path_lengths(graph_from_edgelist(edges), source)
 
 
 def dijkstra_product(
@@ -91,9 +100,9 @@ def _baseline() -> dict[str, object]:
     import rextio
     import rextio_networkx
     from rextio.plugins.api import PLUGIN_API_VERSION
+    from rextio_networkx.host_compat import require_supported_plugin_api
 
-    if PLUGIN_API_VERSION != "1.3":
-        raise RuntimeError(f"benchmark requires plugin API 1.3, found {PLUGIN_API_VERSION}")
+    require_supported_plugin_api(PLUGIN_API_VERSION, consumer="benchmark")
     rextio_file = Path(rextio.__file__).resolve()
     if core_root is not None and not rextio_file.is_relative_to(core_root / "src"):
         raise RuntimeError(f"{_CORE_ROOT_ENV} is set but rextio imported from {rextio_file}")
@@ -534,6 +543,7 @@ def _parent_main(args: argparse.Namespace) -> int:
         expected_routes = [
             "nx_bench_app.kernels.components_product",
             "nx_bench_app.kernels.bfs_product",
+            "nx_bench_app.kernels.shortest_path_lengths_product",
             "nx_bench_app.kernels.dijkstra_product",
         ]
         route_evidence = {}
@@ -551,6 +561,24 @@ def _parent_main(args: argparse.Namespace) -> int:
             }
         check_digest = hashlib.sha256(check_path.read_bytes()).hexdigest()
         shutil.copy2(check_path, output_dir / "check.json")
+
+        if args.route_smoke:
+            result = {
+                "schema": "rextio-networkx-shortest-path-lengths-route-smoke-v1",
+                "generated_at_utc": time.strftime("%Y-%m-%dT%H:%M:%SZ", time.gmtime()),
+                "provenance": provenance,
+                "route_evidence": {
+                    "check_json_sha256": check_digest,
+                    "original_check_json": "check.json",
+                    "functions": route_evidence,
+                },
+                "focus": "nx_bench_app.kernels.shortest_path_lengths_product",
+                "performance_claim": "none; route/provenance smoke does not time either mode",
+            }
+            smoke_path = output_dir / "shortest-path-lengths-smoke.json"
+            smoke_path.write_text(json.dumps(result, sort_keys=True, indent=2) + "\n", encoding="utf-8")
+            print(f"wrote {smoke_path}")
+            return 0
 
         build_python = root / ".rextio" / "build" / "python"
         workers = {mode: ModeWorker(mode, build_python) for mode in ("native", "fallback")}
@@ -616,6 +644,11 @@ def _parser() -> argparse.ArgumentParser:
     parser.add_argument("--mode", choices=("native", "fallback"))
     parser.add_argument("--build-python")
     parser.add_argument("--smoke", action="store_true")
+    parser.add_argument(
+        "--route-smoke",
+        action="store_true",
+        help="build and record shortest-path-lengths route provenance without timing",
+    )
     parser.add_argument(
         "--sizes",
         nargs="+",
