@@ -1,7 +1,7 @@
 # rextio-networkx
 
 <p align="center">
-  <img src="https://raw.githubusercontent.com/rextio/rextio-networkx/main/assets/readme/rextio-icon.png" width="96" alt="Rextio icon">
+  <img src="./assets/readme/rextio-icon.png" width="96" alt="Rextio icon">
 </p>
 
 <p align="center"><strong>Bounded NetworkX graph algorithms on resident petgraph graphs.</strong></p>
